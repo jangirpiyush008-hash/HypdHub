@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "inverse-primary": "#993295",
+              "tertiary-fixed-dim": "#ffb692",
+              "on-tertiary-container": "#ffb490",
+              "surface-container": "#1f1f22",
+              "on-background": "#e4e1e6",
+              "on-primary": "#5b005b",
+              "primary-container": "#8a2387",
+              "primary-fixed": "#ffd7f5",
+              "error-container": "#93000a",
+              "secondary-fixed-dim": "#ffb3b5",
+              "on-primary-fixed-variant": "#7d137b",
+              "inverse-on-surface": "#303033",
+              "surface-container-high": "#2a2a2d",
+              "surface-tint": "#ffabf3",
+              "surface": "#131316",
+              "background": "#131316",
+              "error": "#ffb4ab",
+              "on-tertiary": "#552000",
+              "surface-container-low": "#1b1b1e",
+              "primary-fixed-dim": "#ffabf3",
+              "primary": "#ffabf3",
+              "on-primary-container": "#ffa8f3",
+              "on-error": "#690005",
+              "on-secondary-fixed-variant": "#920026",
+              "surface-container-highest": "#353438",
+              "surface-dim": "#131316",
+              "surface-bright": "#39393c",
+              "on-tertiary-fixed-variant": "#793100",
+              "on-secondary-container": "#ffb2b5",
+              "surface-container-lowest": "#0e0e11",
+              "outline": "#9e8b99",
+              "on-secondary": "#680018",
+              "on-primary-fixed": "#380038",
+              "on-surface-variant": "#d6c1cf",
+              "tertiary": "#ffb692",
+              "surface-variant": "#353438",
+              "secondary": "#ffb3b5",
+              "on-tertiary-fixed": "#341100",
+              "secondary-fixed": "#ffdada",
+              "on-secondary-fixed": "#40000c",
+              "inverse-surface": "#e4e1e6",
+              "tertiary-container": "#8b3900",
+              "tertiary-fixed": "#ffdbcb",
+              "on-surface": "#e4e1e6",
+              "on-error-container": "#ffdad6",
+              "secondary-container": "#a7032e",
+              "outline-variant": "#51424e"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30 min-h-screen pb-32">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-xl dark:bg-[#131316]/60 shadow-[0px_24px_48px_rgba(0,0,0,0.4)]">
+<div class="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
+<h1 class="text-2xl font-black tracking-tighter bg-gradient-to-br from-[#ffabf3] to-[#8a2387] bg-clip-text text-transparent font-headline">HYPD Hub</h1>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-white/5 transition-all duration-300 rounded-full scale-95 active:scale-90">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="close-up portrait of a trendy male creator with soft urban lighting and cinematic depth of field" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBe3NmdM9QwEGH7Bd9hCGsg_DjZ68Qe1FtYACt0NJdQpbEJkq6i4Hoi02Elq_R2Ua9X0rt8uADQeva4d84clpTSukkZLGJCAYKWkrOv1ciexuVNAjcEVWBCT27XbjLoho8nO3JJXKZs3sm463SDfQiNZx5uU2ZdVI8Du4aS8bDJTo9Z2BUveIGwNaYPZ8boDLs10roVIjY8rUjI-_7u93WAk6El3KPcNZqXI0HHFmawvxoEcsKNoAkn59QUDJUnXVCfWdr93wmdPBE"/>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-24 px-4 space-y-8 max-w-lg mx-auto">
+<!-- Hero Section & Filters -->
+<section class="space-y-6">
+<div class="space-y-2">
+<h2 class="text-4xl font-black tracking-tight font-headline text-on-surface leading-none">Curated <span class="text-primary">Deals</span></h2>
+<p class="text-on-surface-variant text-sm font-medium opacity-80">Hand-picked revenue opportunities for you.</p>
+</div>
+<div class="flex overflow-x-auto no-scrollbar gap-2 -mx-4 px-4 py-2">
+<button class="flex-shrink-0 px-6 py-2 rounded-full bg-gradient-to-br from-[#ffabf3] to-[#8a2387] text-white text-xs font-bold uppercase tracking-widest shadow-[0_0_15px_rgba(255,171,243,0.3)]">All Deals</button>
+<button class="flex-shrink-0 px-6 py-2 rounded-full bg-surface-container-highest text-on-surface text-xs font-bold uppercase tracking-widest hover:bg-surface-bright transition-colors">Fashion</button>
+<button class="flex-shrink-0 px-6 py-2 rounded-full bg-surface-container-highest text-on-surface text-xs font-bold uppercase tracking-widest hover:bg-surface-bright transition-colors">Tech</button>
+<button class="flex-shrink-0 px-6 py-2 rounded-full bg-surface-container-highest text-on-surface text-xs font-bold uppercase tracking-widest hover:bg-surface-bright transition-colors">Lifestyle</button>
+<button class="flex-shrink-0 px-6 py-2 rounded-full bg-surface-container-highest text-on-surface text-xs font-bold uppercase tracking-widest hover:bg-surface-bright transition-colors">Beauty</button>
+</div>
+</section>
+<!-- Sticky Top 10 Horizontal Slider -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline font-bold text-lg tracking-tight flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="trending_up">trending_up</span>
+                    Top 10 Hot Deals
+                </h3>
+</div>
+<div class="flex overflow-x-auto no-scrollbar gap-4 -mx-4 px-4">
+<!-- Top Card 1 -->
+<div class="flex-shrink-0 w-64 bg-surface-container-low rounded-xl overflow-hidden shadow-xl hover:scale-[1.02] transition-transform duration-300">
+<div class="relative h-32">
+<img class="w-full h-full object-cover" data-alt="vibrant red sneaker floating against a deep dark background with atmospheric neon pink lighting and professional studio composition" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpbUm8nT04Qy_rNweYPLkRKLbuTYlF4inKTJeM06B3lUUYl9pBVD1VNl3iez7Mg6v2zcvCKO5Xs8wf63W5K3y80PckIb0xnDV2xEGlTGKeCQrewpR6uHfbSFp5OMSggu2NNXzI1kIOcoeaJWjyVvkdumCrrQaBQfDInigbcRVhe_OdYIPJ_Jw0yMd16HkVBEYQEquMYLBm_rgmUuAPOP4DoIRRSA5Cs4504MI-DGbSlbbaip13rP4xAVatCaMkbGkWrk85mHwUpjw"/>
+<div class="absolute top-2 left-2 bg-primary/90 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-on-primary">#1 TRENDING</div>
+</div>
+<div class="p-4 space-y-2">
+<p class="text-primary text-[10px] font-bold uppercase tracking-widest">Nike Global</p>
+<h4 class="font-headline font-bold text-sm leading-tight">Air Max "Neon Ghost" Collection</h4>
+<div class="flex justify-between items-end">
+<span class="text-xl font-black text-white">18% <span class="text-[10px] text-on-surface-variant font-normal">COMM.</span></span>
+<button class="bg-surface-container-highest p-2 rounded-lg text-primary scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="add_link">add_link</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Top Card 2 -->
+<div class="flex-shrink-0 w-64 bg-surface-container-low rounded-xl overflow-hidden shadow-xl hover:scale-[1.02] transition-transform duration-300">
+<div class="relative h-32">
+<img class="w-full h-full object-cover" data-alt="minimalist white designer watch on dark slate stone surface with soft directional lighting and luxury product photography style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZLwgFMOFzWdi3qxwx_uDxr8YLvWVuaQSreMMW9tDB-913PIUiSJ-AdDcB5SOPRQ4Co9jrCVn80I5XX9zn6Igw-5k7IeJsUe_arSxvt6Hgtc7EISZIz77Mxr7SothPKuyNIFNVmu8TAmrohk9qSv98tEbYUxvyniTC77UrfBGr9I9FAyJBD6KObUIaGAnkKfbRDPYrTSaiXtbAciRWfKGuXeOYMYosjspP1xs9SvFyIiq_oWFH3R78AYwspR2jhfJRUmbwaQG1Beo"/>
+<div class="absolute top-2 left-2 bg-primary/90 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-on-primary">#2 TRENDING</div>
+</div>
+<div class="p-4 space-y-2">
+<p class="text-primary text-[10px] font-bold uppercase tracking-widest">Aura Watches</p>
+<h4 class="font-headline font-bold text-sm leading-tight">The Chrono Minimalist Series</h4>
+<div class="flex justify-between items-end">
+<span class="text-xl font-black text-white">22% <span class="text-[10px] text-on-surface-variant font-normal">COMM.</span></span>
+<button class="bg-surface-container-highest p-2 rounded-lg text-primary scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="add_link">add_link</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Vertical Feed -->
+<section class="space-y-6">
+<h3 class="font-headline font-bold text-lg tracking-tight">Recent Opportunities</h3>
+<div class="space-y-4">
+<!-- Deal Card 1 -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col shadow-lg border-b-2 border-transparent hover:border-primary/20 transition-all">
+<div class="relative h-48">
+<img class="w-full h-full object-cover" data-alt="premium noise-canceling headphones in matte black finish on a sleek wooden desk with purple ambient lighting shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUf4aZWlmcxzYozPRcTy6fMGG_Nacfvu2dwRV1wQmGCLwlASjyN5R-HCkfU3wfM6D0RV5fUi6XgUNPIUffiihyJ66yusrFkfXs87gks0BdtnpZXILvDbJxtWPRF1x1MqTGOcSOVmmnfmiDSgZ-rYbVNWOul7mHNvLNdmQUSo3AymVcRJ2o6ZZlUGOzKalsRzwZ29jhk0dWhkGkqIbvKyY7GlE9dkkPlxiY63JREsUWhUM_OKncD2XhYkDQEa5F5AKL94vsyFj4igw"/>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="bg-surface/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 uppercase">High Demand</span>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-primary text-[10px] font-bold uppercase tracking-widest mb-1">Tech Essentials</p>
+<h4 class="font-headline font-extrabold text-xl leading-tight">Acoustic Pro Headphones</h4>
+</div>
+<div class="text-right">
+<span class="block text-2xl font-black text-white">$45</span>
+<span class="text-[10px] text-on-surface-variant font-bold uppercase tracking-tighter">Per Sale</span>
+</div>
+</div>
+<p class="text-sm text-on-surface-variant line-clamp-2">The highest converting audio accessory in the creator ecosystem. Perfect for lifestyle and tech reels.</p>
+<button class="w-full py-4 bg-gradient-to-br from-[#ffabf3] to-[#8a2387] rounded-xl text-white font-bold text-sm uppercase tracking-widest shadow-[0_4px_20px_rgba(138,35,135,0.4)] scale-100 active:scale-95 transition-transform flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-base" data-icon="link">link</span>
+                            Convert Link
+                        </button>
+</div>
+</div>
+<!-- Deal Card 2 -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden flex flex-col shadow-lg border-b-2 border-transparent hover:border-primary/20 transition-all">
+<div class="relative h-48">
+<img class="w-full h-full object-cover" data-alt="elegant vanity setup with high-end cosmetic bottles and soft natural morning light filtering through a window" src="https://lh3.googleusercontent.com/aida-public/AB6AXuADMluwnzL05bqkxMfexsJ5Fdu7gocn3Og1km8qQJa8MJEsqYPsh664s6i_gr8OoR4xaV8nFPl5h0nuKVxVf1eiPf3oiIxDmhTcHS-u2Rqrop_b9Y1VqTroM1zxrTVGVb74t00r4wKIY0giPVQE9mGfiMtYlF8TNBCdleWNmIFRyqrBJ2Myjkdca7Lgf1PFyfrCsAFjOnrIcZFpClkYNwNDpuCEkRZzfCGTrXnRyv8tr55hNcMV7vjdpomaXHYiok9gAUmUXLEeETo"/>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="bg-surface/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 uppercase">Beauty Exclusive</span>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-primary text-[10px] font-bold uppercase tracking-widest mb-1">Glow Theory</p>
+<h4 class="font-headline font-extrabold text-xl leading-tight">Vitamin C Radiance Serum</h4>
+</div>
+<div class="text-right">
+<span class="block text-2xl font-black text-white">25%</span>
+<span class="text-[10px] text-on-surface-variant font-bold uppercase tracking-tighter">Commission</span>
+</div>
+</div>
+<p class="text-sm text-on-surface-variant line-clamp-2">Exclusive partnership for creators with skincare-focused audiences. High repeat purchase rate.</p>
+<button class="w-full py-4 bg-gradient-to-br from-[#ffabf3] to-[#8a2387] rounded-xl text-white font-bold text-sm uppercase tracking-widest shadow-[0_4px_20px_rgba(138,35,135,0.4)] scale-100 active:scale-95 transition-transform flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-base" data-icon="link">link</span>
+                            Convert Link
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats Quick Peek -->
+<section class="bg-surface-container-highest/30 backdrop-blur-lg rounded-2xl p-6 border border-white/5 space-y-4">
+<h4 class="font-headline font-bold text-sm uppercase tracking-widest text-on-surface-variant">Earnings Pulse</h4>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1">
+<span class="text-3xl font-black text-white">$1,240</span>
+<span class="block text-[10px] text-primary font-bold uppercase">Pending Payout</span>
+</div>
+<div class="space-y-1">
+<span class="text-3xl font-black text-white">42</span>
+<span class="block text-[10px] text-primary font-bold uppercase">Active Links</span>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#131316]/80 backdrop-blur-lg z-50 rounded-t-2xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] border-t border-white/5">
+<!-- Deals (Active) -->
+<div class="flex flex-col items-center justify-center bg-gradient-to-br from-[#ffabf3] to-[#8a2387] text-white rounded-xl px-4 py-2 scale-110 shadow-[0_0_15px_rgba(255,171,243,0.3)] tap-highlight-transparent">
+<span class="material-symbols-outlined text-lg" data-icon="local_fire_department" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Deals</span>
+</div>
+<!-- Convert -->
+<div class="flex flex-col items-center justify-center text-gray-500 opacity-70 hover:opacity-100 transition-opacity tap-highlight-transparent">
+<span class="material-symbols-outlined text-lg" data-icon="link">link</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Convert</span>
+</div>
+<!-- Stats -->
+<div class="flex flex-col items-center justify-center text-gray-500 opacity-70 hover:opacity-100 transition-opacity tap-highlight-transparent">
+<span class="material-symbols-outlined text-lg" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Stats</span>
+</div>
+<!-- Bot -->
+<div class="flex flex-col items-center justify-center text-gray-500 opacity-70 hover:opacity-100 transition-opacity tap-highlight-transparent">
+<span class="material-symbols-outlined text-lg" data-icon="smart_toy">smart_toy</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Bot</span>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --surface: 250 247 251;
+  --surface-low: 245 240 248;
+  --surface-card: 255 255 255;
+  --surface-high: 248 243 250;
+  --surface-top: 239 232 244;
+  --surface-bright: 231 221 239;
+  --primary: 230 78 189;
+  --primary-deep: 138 35 135;
+  --secondary: 255 179 181;
+  --tertiary: 255 182 146;
+  --text: 30 24 38;
+  --muted: 112 98 126;
+  --outline: 217 208 226;
+  --page-glow-a: rgba(255, 124, 214, 0.16);
+  --page-glow-b: rgba(138, 35, 135, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --selection-bg: rgba(230, 78, 189, 0.18);
+  --selection-text: rgb(31, 25, 39);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: 19 19 22;
+  --surface-low: 27 27 30;
+  --surface-card: 31 31 34;
+  --surface-high: 42 42 45;
+  --surface-top: 53 52 56;
+  --surface-bright: 57 57 60;
+  --primary: 255 171 243;
+  --primary-deep: 138 35 135;
+  --secondary: 255 179 181;
+  --tertiary: 255 182 146;
+  --text: 228 225 230;
+  --muted: 214 193 207;
+  --outline: 81 66 78;
+  --page-glow-a: rgba(255, 171, 243, 0.08);
+  --page-glow-b: rgba(138, 35, 135, 0.12);
+  --glass-bg: rgba(31, 31, 34, 0.64);
+  --selection-bg: rgba(255, 171, 243, 0.30);
+  --selection-text: rgb(255, 171, 243);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, var(--page-glow-a), transparent 24%),
+    radial-gradient(circle at bottom left, var(--page-glow-b), transparent 22%),
+    rgb(var(--surface));
+  color: rgb(var(--text));
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.font-headline {
+  font-family:
+    "Plus Jakarta Sans",
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.font-body {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+* {
+  border-color: rgb(var(--outline) / 0.32);
+}
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.focus-line {
+  position: relative;
+}
+
+.focus-line::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #ffabf3 0%, #8a2387 100%);
+  transition: width 180ms ease;
+}
+
+.focus-line:focus-within::after {
+  width: calc(100% - 1.5rem);
+}
+
+.card-hover {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 24px 48px rgba(85, 37, 89, 0.12), 0 0 20px rgba(255, 171, 243, 0.16);
+}
+
+.thin-mask {
+  mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+}
