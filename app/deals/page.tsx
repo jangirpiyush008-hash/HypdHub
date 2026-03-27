@@ -7,7 +7,7 @@ export default function DealsPage() {
       <section className="space-y-4">
         <SectionHeading
           title="Curated Deals"
-          description="Browse today’s top candidates by marketplace and category. Before login, visitors see only a small preview. HYPD users unlock the full feed after OTP login."
+          description="Browse live deals across marketplaces and HYPD-ready conversion opportunities. Login unlocks the full feed, filters, and creator tools."
         />
       </section>
       <DealsExperience />

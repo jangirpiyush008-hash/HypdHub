@@ -11,6 +11,7 @@ const publicItems = [
 ];
 
 const privateItems = [
+  { href: "/deals", label: "Deals", icon: LightningIcon },
   { href: "/converter", label: "Convert", icon: LinkIcon },
   { href: "/dashboard", label: "Stats", icon: DashboardIcon },
   { href: "/connect", label: "Connect", icon: BotIcon }

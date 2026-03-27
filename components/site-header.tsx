@@ -12,6 +12,7 @@ const publicLinks = [
 ];
 
 const privateLinks = [
+  { href: "/deals", label: "Deals" },
   { href: "/converter", label: "Converter" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/connect", label: "Connect" }

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { DealsBrowser } from "@/components/deals-browser";
 import { MarketplaceTopDeals } from "@/components/marketplace-top-deals";
-import { TelegramSourceHealth } from "@/components/telegram-source-health";
 import { useCreatorAuth } from "@/components/auth-provider";
 
 export function DealsExperience() {
@@ -11,7 +10,6 @@ export function DealsExperience() {
 
   return (
     <div className="space-y-8">
-      <TelegramSourceHealth />
       <MarketplaceTopDeals />
 
       {isAuthenticated ? <DealsBrowser /> : null}

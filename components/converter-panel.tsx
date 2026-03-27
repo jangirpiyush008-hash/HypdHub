@@ -5,14 +5,8 @@ import { useCreatorAuth } from "@/components/auth-provider";
 import { ArrowRightIcon, CopyIcon, LinkIcon, SparklesIcon } from "@/components/icons";
 import { HypdConversionResult, generateHypdConversion } from "@/lib/hypd-links";
 
-const defaultUrl =
-  "https://www.myntra.com/sweatshirts/cava/cava-moscow-blue-essential-sweatshirt/25312770/buy";
-
-const bulkDefault = [
-  "https://www.hypd.store/harshdubey123/product/646221796d6b52625e6387e4?title=Vitamin+C+%2B+E+SPF+50%2B+PA%2B%2B%2B%2B+Sunscreen+-+50g",
-  "https://www.flipkart.com/triggr-arcus-one-60h-battery-4-mic-enc-dual-pairing-rubber-grip-13mm-drivers-v6-0-bluetooth/p/itmcaf717e45f345",
-  "https://www.nykaa.com/dove-peptide-bond-strength-shampoo/p/20671035?productId=20671035&skuId=20671028&pps=1"
-].join("\n");
+const defaultUrl = "";
+const bulkDefault = "";
 
 function csvValue(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
@@ -104,9 +98,7 @@ export function ConverterPanel() {
   const [copied, setCopied] = useState(false);
   const [copiedFull, setCopiedFull] = useState(false);
   const [csvCopied, setCsvCopied] = useState(false);
-  const [output, setOutput] = useState<HypdConversionResult | null>(
-    generateHypdConversion(defaultUrl, username)
-  );
+  const [output, setOutput] = useState<HypdConversionResult | null>(null);
   const [bulkResults, setBulkResults] = useState<HypdConversionResult[]>([]);
   const [convertStatus, setConvertStatus] = useState("Login with your real HYPD account to run live conversion.");
   const [isConverting, setIsConverting] = useState(false);
@@ -259,6 +251,9 @@ export function ConverterPanel() {
               This flow now follows the HYPD formats you shared: HYPD Store routes stay under your username,
               and supported marketplaces generate {"`/{username}/afflink/{clickId}`"} short links plus full
               expanded URLs.
+            </p>
+            <p className="mt-3 text-sm leading-7 text-muted">
+              The converter now opens empty by default so you can paste any fresh URL and work on the full page directly.
             </p>
           </div>
 

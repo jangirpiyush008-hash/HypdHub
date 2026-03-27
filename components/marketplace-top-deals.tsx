@@ -61,17 +61,8 @@ export function MarketplaceTopDeals() {
           Best public deals refreshed every {data.refreshWindowHours} hours
         </h3>
         <p className="mt-3 text-sm leading-7 text-muted">
-          These sections are structured to surface the strongest public deals from across internet sources,
-          then organize them into top 10 boards per marketplace for fast creator conversion.
-        </p>
-        <p className="mt-3 text-xs font-bold uppercase tracking-[0.24em] text-muted">
-          {data.telegramDealsCount} unique Telegram-sourced deals in current cache
-        </p>
-        <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-muted">
-          {data.validatedDealsCount} deals validated against marketplace public pages
-        </p>
-        <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-muted">
-          {data.history.trackedDeals} tracked deals across {data.history.trackedSnapshots} stored snapshots
+          These sections surface the strongest available deals and organize them into clean marketplace boards
+          for fast creator conversion.
         </p>
       </div>
 
@@ -110,47 +101,7 @@ export function MarketplaceTopDeals() {
                   </div>
                   <div className="rounded-xl bg-surface-card px-3 py-2 text-right">
                     <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
-                      Score {deal.score}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {deal.discountPercent ? `${deal.discountPercent}% off` : "No price diff"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-surface-card px-3 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-muted">Mentions</p>
-                    <p className="mt-2 font-headline text-xl font-bold text-text">{deal.mentionsCount}</p>
-                  </div>
-                  <div className="rounded-xl bg-surface-card px-3 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-muted">Channels</p>
-                    <p className="mt-2 font-headline text-xl font-bold text-text">{deal.channelsCount}</p>
-                  </div>
-                  <div className="rounded-xl bg-surface-card px-3 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-muted">Validation</p>
-                    <p className="mt-2 text-sm font-bold text-text">
-                      {deal.validationStatus === "validated" ? "Public page verified" : "Telegram-only"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-surface-card px-3 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-muted">Stock</p>
-                    <p className="mt-2 text-sm font-bold text-text">
-                      {deal.stockStatus === "in_stock"
-                        ? "In stock"
-                        : deal.stockStatus === "out_of_stock"
-                          ? "Out of stock"
-                      : "Unknown"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-surface-card px-3 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-muted">Confidence</p>
-                    <p className="mt-2 text-sm font-bold text-text">{deal.confidenceScore ?? 0}</p>
-                  </div>
-                  <div className="rounded-xl bg-surface-card px-3 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-muted">Price history</p>
-                    <p className="mt-2 text-sm font-bold text-text">
-                      {deal.priceDropSinceFirstSeen ? `${deal.priceDropSinceFirstSeen}% drop` : "Stable"}
+                      {deal.discountPercent ? `${deal.discountPercent}% off` : "Live deal"}
                     </p>
                   </div>
                 </div>
@@ -161,7 +112,7 @@ export function MarketplaceTopDeals() {
                       {deal.currentPrice ? `₹${deal.currentPrice.toLocaleString("en-IN")}` : "Price in post"}
                     </p>
                     <p className="text-xs uppercase tracking-[0.24em] text-muted">
-                      last seen {(deal.freshnessHours ?? 0).toFixed(1)}h ago
+                      {deal.originalPrice ? `MRP ₹${deal.originalPrice.toLocaleString("en-IN")}` : "Fresh live deal"}
                     </p>
                   </div>
                   {href ? (

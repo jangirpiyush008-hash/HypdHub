@@ -137,9 +137,7 @@ export function DealsBrowser() {
                 <article key={deal.id} className="min-w-[280px] rounded-[1.35rem] bg-surface-card p-5 shadow-ambient sm:min-w-0">
                   <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">{deal.marketplace}</p>
                   <h4 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{deal.title}</h4>
-                  <p className="mt-2 text-sm text-muted">
-                    {deal.category} • {deal.channelsCount} channels • {deal.mentionsCount} mentions
-                  </p>
+                  <p className="mt-2 text-sm text-muted">{deal.category}</p>
                   <div className="mt-5 flex items-end justify-between gap-4">
                     <div>
                       <p className="font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
@@ -193,14 +191,9 @@ export function DealsBrowser() {
                         <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-primary">
                           {deal.marketplace}
                         </span>
-                        <span className="rounded-full bg-surface-top px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-text">
-                          {deal.validationStatus ?? "unverified"}
-                        </span>
                       </div>
                       <h4 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{deal.title}</h4>
-                      <p className="mt-2 text-sm text-muted">
-                        {deal.category} • last seen {Math.max(0, Math.round(deal.freshnessHours ?? 0))}h ago
-                      </p>
+                      <p className="mt-2 text-sm text-muted">{deal.category}</p>
                     </div>
                     <div className="rounded-2xl bg-surface-top px-3 py-2 text-right">
                       <div className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
@@ -218,7 +211,7 @@ export function DealsBrowser() {
                         {formatPrice(deal.currentPrice)}
                       </div>
                       <p className="text-xs uppercase tracking-[0.22em] text-muted">
-                        {deal.channelsCount} channels • confidence {deal.confidenceScore ?? 0}
+                        {deal.originalPrice ? `MRP ₹${deal.originalPrice.toLocaleString("en-IN")}` : "Fresh live deal"}
                       </p>
                     </div>
                     {href ? (
