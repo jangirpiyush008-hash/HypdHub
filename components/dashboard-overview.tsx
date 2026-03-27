@@ -2,18 +2,13 @@
 
 import { useState } from "react";
 import { DashboardActions } from "@/components/dashboard-actions";
+import { DashboardLiveIntelligence } from "@/components/dashboard-live-intelligence";
+import { DashboardLiveQueue } from "@/components/dashboard-live-queue";
 import { DashboardPipeline } from "@/components/dashboard-pipeline";
 import { DashboardSidePanel } from "@/components/dashboard-side-panel";
 import { SimpleBarChart } from "@/components/simple-bar-chart";
 import { StoreMix } from "@/components/store-mix";
-import { deals, recentLinks } from "@/data/mock";
-
-const stats = [
-  { label: "Total posted deals", value: "128", accent: "from-primary/30 to-primary-deep/30" },
-  { label: "WhatsApp broadcasts", value: "36", accent: "from-emerald-400/20 to-emerald-500/10" },
-  { label: "Telegram posts", value: "58", accent: "from-sky-400/20 to-sky-500/10" },
-  { label: "Manual HYPD pushes", value: "14", accent: "from-amber-300/20 to-amber-500/10" }
-];
+import { recentLinks } from "@/data/mock";
 
 const resources = [
   { label: "Connected social accounts", value: "09" },
@@ -106,20 +101,7 @@ function OverviewPanel() {
       </section>
 
       <DashboardActions />
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <article
-            key={stat.label}
-            className={`rounded-[1.5rem] bg-gradient-to-br ${stat.accent} p-[1px] shadow-ambient`}
-          >
-            <div className="rounded-[calc(1.5rem-1px)] bg-surface-card p-5">
-              <p className="text-sm text-muted">{stat.label}</p>
-              <p className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.05em] text-text">{stat.value}</p>
-            </div>
-          </article>
-        ))}
-      </section>
+      <DashboardLiveIntelligence />
 
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
@@ -132,8 +114,6 @@ function OverviewPanel() {
 }
 
 function TopDealsQueuePanel() {
-  const queuedDeals = deals.slice(0, 6);
-
   return (
     <SectionShell
       eyebrow="Queue"
@@ -141,29 +121,7 @@ function TopDealsQueuePanel() {
       description="Review the highest-priority products waiting to be pushed through HYPD, Telegram, and WhatsApp."
     >
       <DashboardPipeline />
-      <div className="grid gap-4 md:grid-cols-2">
-        {queuedDeals.map((deal, index) => (
-          <article key={deal.id} className="rounded-[1.35rem] bg-surface-low p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Queue #{index + 1}</p>
-                <h3 className="mt-2 font-headline text-xl font-bold tracking-[-0.03em] text-text">
-                  {deal.productName}
-                </h3>
-                <p className="mt-2 text-sm text-muted">
-                  {deal.source} • {deal.category} • {deal.demand}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
-                  Rs. {deal.price}
-                </p>
-                <p className="text-xs uppercase tracking-[0.24em] text-primary">Score {deal.score}</p>
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+      <DashboardLiveQueue />
     </SectionShell>
   );
 }

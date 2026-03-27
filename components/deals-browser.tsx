@@ -59,7 +59,7 @@ export function DealsBrowser() {
           </h3>
         </div>
         <div className="hide-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">
-          {filteredDeals.slice(0, 5).map((deal) => (
+          {filteredDeals.slice(0, 10).map((deal) => (
             <div key={deal.id} className="min-w-[280px] sm:min-w-0">
               <DealCard deal={deal} compact />
             </div>

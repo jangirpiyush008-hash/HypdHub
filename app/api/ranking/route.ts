@@ -1,23 +1,33 @@
 import { NextResponse } from "next/server";
-import { rankDeals } from "@/lib/deals/ranking";
+import { getTopDealsByMarketplace, rankDeals } from "@/lib/deals/ranking";
 import { fetchHypdProducts } from "@/lib/integrations/hypd";
 import { fetchMarketplaceSnapshots } from "@/lib/integrations/marketplaces";
-import { fetchTelegramSignalSummary } from "@/lib/integrations/telegram";
+import { fetchTelegramDeals, fetchTelegramSignalSummary } from "@/lib/integrations/telegram";
+import { ensureAutomaticRefresh, getRefreshStatus } from "@/lib/runtime/refresh-state";
 
 export async function GET() {
-  const [hypd, marketplaces, telegram] = await Promise.all([
+  await ensureAutomaticRefresh("api-ranking");
+
+  const [hypd, marketplaces, telegram, telegramDeals, refresh] = await Promise.all([
     fetchHypdProducts(),
     fetchMarketplaceSnapshots(),
-    fetchTelegramSignalSummary()
+    fetchTelegramSignalSummary(),
+    fetchTelegramDeals(),
+    getRefreshStatus()
   ]);
 
   return NextResponse.json({
     refreshWindowHours: 2,
     topDeals: rankDeals().slice(0, 10),
+    topDealsByMarketplace:
+      Object.keys(telegramDeals.topDealsByMarketplace).length > 0
+        ? telegramDeals.topDealsByMarketplace
+        : getTopDealsByMarketplace(),
     integrations: {
       hypd,
       marketplaces,
       telegram
-    }
+    },
+    refresh
   });
 }

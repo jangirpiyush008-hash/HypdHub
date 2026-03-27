@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
-import { fetchTelegramSignalSummary } from "@/lib/integrations/telegram";
+import { fetchTelegramDeals, fetchTelegramSignalSummary } from "@/lib/integrations/telegram";
+import { ensureAutomaticRefresh, getRefreshStatus } from "@/lib/runtime/refresh-state";
 
 export async function GET() {
-  const result = await fetchTelegramSignalSummary();
-  return NextResponse.json(result);
+  await ensureAutomaticRefresh("api-ingestion-telegram");
+  const [summary, telegram, refresh] = await Promise.all([
+    fetchTelegramSignalSummary(),
+    fetchTelegramDeals(),
+    getRefreshStatus()
+  ]);
+  return NextResponse.json({
+    ...summary,
+    uniqueDealsCount: telegram.deals.length,
+    refresh
+  });
 }

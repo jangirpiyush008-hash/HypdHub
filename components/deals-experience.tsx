@@ -3,18 +3,22 @@
 import Link from "next/link";
 import { DealsBrowser } from "@/components/deals-browser";
 import { DealCard } from "@/components/deal-card";
+import { MarketplaceTopDeals } from "@/components/marketplace-top-deals";
+import { TelegramSourceHealth } from "@/components/telegram-source-health";
 import { useCreatorAuth } from "@/components/auth-provider";
 import { deals } from "@/data/mock";
 
 export function DealsExperience() {
   const { isAuthenticated } = useCreatorAuth();
 
-  if (isAuthenticated) {
-    return <DealsBrowser />;
-  }
-
   return (
     <div className="space-y-8">
+      <TelegramSourceHealth />
+      <MarketplaceTopDeals />
+
+      {isAuthenticated ? <DealsBrowser /> : null}
+
+      {!isAuthenticated ? (
       <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Deals Preview</p>
         <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
@@ -36,12 +40,15 @@ export function DealsExperience() {
           </div>
         </div>
       </section>
+      ) : null}
 
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {deals.slice(0, 4).map((deal) => (
-          <DealCard key={deal.id} deal={deal} compact />
-        ))}
-      </section>
+      {!isAuthenticated ? (
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {deals.slice(0, 4).map((deal) => (
+            <DealCard key={deal.id} deal={deal} compact />
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

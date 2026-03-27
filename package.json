@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "telegram:login": "node scripts/create-telegram-session.mjs",
+    "telegram:check": "node scripts/check-telegram-channels.mjs"
   },
   "dependencies": {
     "next": "^15.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "telegram": "^2.26.22"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -24,3 +24,32 @@ export type RankingBreakdown = {
   telegramTrendScore: number;
   manualBoostScore: number;
 };
+
+export type InternetDeal = {
+  id: string;
+  marketplace: "Myntra" | "Amazon" | "Flipkart" | "Shopsy" | "Ajio" | "Nykaa";
+  canonicalUrl: string;
+  originalUrl: string;
+  title: string;
+  category: string;
+  currentPrice: number | null;
+  originalPrice: number | null;
+  discountPercent: number | null;
+  mentionsCount: number;
+  channelsCount: number;
+  channelNames: string[];
+  firstSeenAt: string;
+  lastSeenAt: string;
+  freshnessHours: number;
+  score: number;
+  validationStatus?: "validated" | "unverified" | "failed";
+  validatedAt?: string;
+  validatedTitle?: string | null;
+  stockStatus?: "in_stock" | "out_of_stock" | "unknown";
+  sourceEvidence?: string[];
+  confidenceScore?: number;
+  historySeenCount?: number;
+  lowestTrackedPrice?: number | null;
+  highestTrackedPrice?: number | null;
+  priceDropSinceFirstSeen?: number | null;
+};
