@@ -145,11 +145,11 @@ export function MarketplaceTopDeals() {
                       {deal.currentPrice ? `₹${deal.currentPrice.toLocaleString("en-IN")}` : "Price in post"}
                     </p>
                     <p className="text-xs uppercase tracking-[0.24em] text-muted">
-                      last seen {deal.freshnessHours.toFixed(1)}h ago
+                      last seen {(deal.freshnessHours ?? 0).toFixed(1)}h ago
                     </p>
                   </div>
                   <Link
-                    href={deal.originalUrl}
+                    href={deal.originalUrl || deal.canonicalUrl || "#"}
                     target="_blank"
                     rel="noreferrer"
                     className="rounded-xl bg-cta-gradient px-4 py-3 font-headline text-sm font-bold text-white shadow-glow"
