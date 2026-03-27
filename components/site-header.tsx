@@ -62,7 +62,7 @@ export function SiteHeader() {
           </div>
           {isAuthenticated ? (
             <div className="hidden rounded-xl bg-surface-top px-3 py-2 text-xs font-semibold text-text sm:block">
-              {creator?.hypdUserId}
+              @{creator?.hypdUsername ?? "creator"}
             </div>
           ) : null}
           {isAuthenticated ? (

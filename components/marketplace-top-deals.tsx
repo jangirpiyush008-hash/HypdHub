@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { InternetDeal } from "@/lib/types";
 
 type DealsApiResponse = {
@@ -39,6 +38,19 @@ export function MarketplaceTopDeals() {
         </h3>
       </section>
     );
+  }
+
+  function getExternalHref(deal: InternetDeal) {
+    const candidate = deal.originalUrl || deal.canonicalUrl;
+
+    if (!candidate) return null;
+
+    try {
+      const url = new URL(candidate);
+      return url.toString();
+    } catch {
+      return null;
+    }
   }
 
   return (
@@ -79,6 +91,10 @@ export function MarketplaceTopDeals() {
 
           <div className="mt-5 hide-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 xl:grid-cols-3">
             {deals.map((deal) => (
+              (() => {
+                const href = getExternalHref(deal);
+
+                return (
               <article
                 key={deal.id}
                 className="min-w-[280px] rounded-[1.35rem] bg-surface-low p-5 shadow-ambient sm:min-w-0"
@@ -148,16 +164,24 @@ export function MarketplaceTopDeals() {
                       last seen {(deal.freshnessHours ?? 0).toFixed(1)}h ago
                     </p>
                   </div>
-                  <Link
-                    href={deal.originalUrl || deal.canonicalUrl || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl bg-cta-gradient px-4 py-3 font-headline text-sm font-bold text-white shadow-glow"
-                  >
-                    Open deal
-                  </Link>
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-xl bg-cta-gradient px-4 py-3 font-headline text-sm font-bold text-white shadow-glow"
+                    >
+                      Open deal
+                    </a>
+                  ) : (
+                    <span className="rounded-xl bg-surface-card px-4 py-3 font-headline text-sm font-bold text-muted">
+                      Link unavailable
+                    </span>
+                  )}
                 </div>
               </article>
+                );
+              })()
             ))}
           </div>
         </section>

@@ -27,7 +27,7 @@ export type HypdConversionResult = {
 };
 
 function sanitizeUsername(username: string) {
-  return username.trim().replace(/^@/, "").toLowerCase() || "creatordemo";
+  return username.trim().replace(/^@/, "").toLowerCase() || "creator";
 }
 
 function makeClickId(input: string) {

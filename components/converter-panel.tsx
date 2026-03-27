@@ -98,7 +98,7 @@ function ParserTable({ output }: { output: HypdConversionResult | null }) {
 
 export function ConverterPanel() {
   const { creator, isAuthenticated } = useCreatorAuth();
-  const username = creator?.hypdUsername ?? "creatordemo";
+  const username = creator?.hypdUsername ?? "creator";
   const [url, setUrl] = useState(defaultUrl);
   const [bulkText, setBulkText] = useState(bulkDefault);
   const [copied, setCopied] = useState(false);

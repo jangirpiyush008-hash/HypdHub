@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { deals } from "@/data/mock";
-import { DealCard } from "@/components/deal-card";
 
 export function LockedDealsPreview() {
   return (
@@ -9,11 +7,11 @@ export function LockedDealsPreview() {
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Public Preview</p>
           <h2 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
-            Preview a few live deals before creator login
+            Live deals stay public, creator tools stay locked
           </h2>
           <p className="mt-3 max-w-2xl text-base leading-7 text-muted">
-            The homepage stays curated and lightweight. Full deal discovery, ranking filters, and conversion
-            actions open after creator login.
+            This public view only shows the live marketplace boards. Login unlocks the full feed, converter,
+            dashboard, and connected workflow controls.
           </p>
         </div>
         <Link
@@ -22,12 +20,6 @@ export function LockedDealsPreview() {
         >
           Creator dashboard
         </Link>
-      </div>
-
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {deals.slice(0, 3).map((deal) => (
-          <DealCard key={deal.id} deal={deal} compact />
-        ))}
       </div>
     </section>
   );

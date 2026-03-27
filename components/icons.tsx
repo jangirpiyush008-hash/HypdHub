@@ -109,3 +109,27 @@ export function LightningIcon({ className }: IconProps) {
     </Svg>
   );
 }
+
+export function SunIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.5" />
+      <path d="M12 19.5V22" />
+      <path d="M4.93 4.93l1.77 1.77" />
+      <path d="M17.3 17.3l1.77 1.77" />
+      <path d="M2 12h2.5" />
+      <path d="M19.5 12H22" />
+      <path d="M4.93 19.07 6.7 17.3" />
+      <path d="M17.3 6.7l1.77-1.77" />
+    </Svg>
+  );
+}
+
+export function MoonIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M20 14.5A7.5 7.5 0 0 1 9.5 4 9 9 0 1 0 20 14.5Z" />
+    </Svg>
+  );
+}

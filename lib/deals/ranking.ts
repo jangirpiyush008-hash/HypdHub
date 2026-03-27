@@ -1,5 +1,4 @@
-import { deals } from "@/data/mock";
-import { RankingBreakdown } from "@/lib/types";
+import { InternetDeal, RankingBreakdown } from "@/lib/types";
 
 const preferredMarketplaces = ["Myntra", "Amazon", "Flipkart", "Shopsy", "Ajio", "Nykaa"] as const;
 
@@ -7,23 +6,25 @@ export function getDiscountPercent(price: number, originalPrice: number) {
   return Math.round(((originalPrice - price) / originalPrice) * 100);
 }
 
-export function getRankingBreakdown(dealId: string): RankingBreakdown | null {
-  const deal = deals.find((item) => item.id === dealId);
-  if (!deal) return null;
-
-  const discountScore = getDiscountPercent(deal.price, deal.originalPrice);
-  const priceAdvantageScore = Math.max(10, Math.round((deal.originalPrice - deal.price) / 250));
-  const popularityScore = Math.min(25, Math.round((deal.soldCount ?? 0) / 100));
-  const clickScore = deal.source === "Amazon" || deal.source === "Flipkart" ? 16 : 12;
+function getRankingBreakdownForDeal(deal: InternetDeal): RankingBreakdown {
+  const discountScore =
+    deal.currentPrice && deal.originalPrice && deal.originalPrice > deal.currentPrice
+      ? getDiscountPercent(deal.currentPrice, deal.originalPrice)
+      : deal.discountPercent ?? 0;
+  const priceAdvantageScore =
+    deal.currentPrice && deal.originalPrice
+      ? Math.max(0, Math.round((deal.originalPrice - deal.currentPrice) / 250))
+      : 0;
+  const popularityScore = Math.min(30, deal.mentionsCount * 3 + deal.channelsCount * 4);
+  const clickScore = Math.min(20, Math.round((deal.confidenceScore ?? 0) / 5));
   const conversionScore =
-    deal.category === "Beauty" || deal.category === "Fashion"
+    deal.category.toLowerCase().includes("beauty") || deal.category.toLowerCase().includes("fashion")
       ? 18
-      : deal.price < 2500
-        ? 16
+      : (deal.currentPrice ?? 0) <= 2500
+        ? 14
         : 10;
-  const telegramTrendScore =
-    deal.demand === "Trending" ? 14 : deal.demand === "High Demand" ? 12 : 8;
-  const manualBoostScore = deal.source === "Amazon" || deal.source === "Flipkart" ? 8 : 5;
+  const telegramTrendScore = Math.min(20, Math.round(Math.max(0, 24 - deal.freshnessHours)));
+  const manualBoostScore = deal.validationStatus === "validated" ? 10 : 0;
 
   return {
     discountScore,
@@ -36,30 +37,33 @@ export function getRankingBreakdown(dealId: string): RankingBreakdown | null {
   };
 }
 
-export function rankDeals() {
+export function getRankingBreakdown(deal: InternetDeal): RankingBreakdown {
+  return getRankingBreakdownForDeal(deal);
+}
+
+export function rankDeals(deals: InternetDeal[]) {
   return [...deals]
-    .filter((deal) => deal.source !== "HYPD")
     .map((deal) => {
-      const ranking = getRankingBreakdown(deal.id);
+      const ranking = getRankingBreakdownForDeal(deal);
       const totalScore =
-        (ranking?.discountScore ?? 0) +
-        (ranking?.priceAdvantageScore ?? 0) +
-        (ranking?.popularityScore ?? 0) +
-        (ranking?.clickScore ?? 0) +
-        (ranking?.conversionScore ?? 0) +
-        (ranking?.telegramTrendScore ?? 0) +
-        (ranking?.manualBoostScore ?? 0);
+        ranking.discountScore +
+        ranking.priceAdvantageScore +
+        ranking.popularityScore +
+        ranking.clickScore +
+        ranking.conversionScore +
+        ranking.telegramTrendScore +
+        ranking.manualBoostScore;
 
       return { ...deal, ranking, totalScore };
     })
     .sort((left, right) => right.totalScore - left.totalScore);
 }
 
-export function getTopDealsByMarketplace(limit = 10) {
-  const ranked = rankDeals();
+export function getTopDealsByMarketplace(deals: InternetDeal[], limit = 10) {
+  const ranked = rankDeals(deals);
 
   return preferredMarketplaces.reduce<Record<string, ReturnType<typeof rankDeals>>>((accumulator, marketplace) => {
-    accumulator[marketplace] = ranked.filter((deal) => deal.source === marketplace).slice(0, limit);
+    accumulator[marketplace] = ranked.filter((deal) => deal.marketplace === marketplace).slice(0, limit);
     return accumulator;
   }, {});
 }

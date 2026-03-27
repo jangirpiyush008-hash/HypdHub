@@ -1,4 +1,17 @@
-import { rankingSignals } from "@/data/mock";
+const rankingSignals = [
+  {
+    title: "Telegram frequency",
+    body: "Deals mentioned across multiple readable channels are surfaced higher because they have stronger public momentum."
+  },
+  {
+    title: "Freshness",
+    body: "Recently seen links get more weight so users see the latest active deals first instead of stale inventory."
+  },
+  {
+    title: "Validation confidence",
+    body: "Marketplace checks, stock signals, and history depth improve confidence when those live signals are available."
+  }
+];
 
 export function RankingLogic() {
   return (

@@ -39,7 +39,7 @@ export function CreatorActions() {
     <div className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
       <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Creator login required</p>
       <h3 className="mt-3 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
-        Public users only see preview deals
+        Public users only see the live top boards
       </h3>
       <p className="mt-3 text-sm leading-7 text-muted">
         Full marketplace feed, filters, link conversion, and automation controls open only after creator

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useCreatorAuth } from "@/components/auth-provider";
 import { DashboardActions } from "@/components/dashboard-actions";
 import { DashboardLiveIntelligence } from "@/components/dashboard-live-intelligence";
 import { DashboardLiveQueue } from "@/components/dashboard-live-queue";
@@ -8,41 +9,55 @@ import { DashboardPipeline } from "@/components/dashboard-pipeline";
 import { DashboardSidePanel } from "@/components/dashboard-side-panel";
 import { SimpleBarChart } from "@/components/simple-bar-chart";
 import { StoreMix } from "@/components/store-mix";
-import { recentLinks } from "@/data/mock";
+import { InternetDeal } from "@/lib/types";
 
-const resources = [
-  { label: "Connected social accounts", value: "09" },
-  { label: "Tracked stores this month", value: "06" },
-  { label: "Queued deal pushes", value: "18" }
-];
+type DealsApiResponse = {
+  telegramDealsCount: number;
+  validatedDealsCount: number;
+  history: {
+    trackedDeals: number;
+    trackedSnapshots: number;
+  };
+  refresh: {
+    lastRefreshAt: string | null;
+    nextRefreshAt: string | null;
+    lastStatus: string;
+  };
+  topDealsByMarketplace: Record<string, InternetDeal[]>;
+};
 
-const manualPushes = [
-  { title: "Flash sneaker push", audience: "VIP Telegram", status: "Scheduled 6:30 PM", note: "High demand product with fast click velocity." },
-  { title: "Fashion combo drop", audience: "WhatsApp Broadcast A", status: "Pending approval", note: "Waiting for final CTA and coupon confirmation." },
-  { title: "Audio hero placement", audience: "Homepage + channels", status: "Live boost", note: "Pinned to increase creator visibility this evening." }
-];
+type RankingApiResponse = {
+  integrations: {
+    hypd: {
+      status: string;
+      notes: string[];
+    };
+    marketplaces: {
+      status: string;
+      marketplaces: string[];
+      rankingPriority: string[];
+    };
+    telegram: {
+      accessibleNow: number;
+      blockedPendingAccess: number;
+      addlistsPendingExpansion: number;
+      rateLimitedTemporarily: number;
+      totalChannels: number;
+      accessibleChannels: Array<{ id: number; title: string | null; handle: string | null }>;
+    };
+  };
+  refresh: {
+    lastRefreshAt: string | null;
+    nextRefreshAt: string | null;
+    lastStatus: string;
+  };
+  topDeals: InternetDeal[];
+};
 
-const filters = [
-  "Price under 2,500",
-  "Rating above 4.2",
-  "Fashion and electronics",
-  "Only high-demand deals",
-  "Exclude out-of-stock products",
-  "Boost HYPD-native inventory"
-];
-
-const botSettings = [
-  { title: "Posting cadence", body: "Telegram posts 5 times daily. WhatsApp sends 3 curated pushes with manual override enabled." },
-  { title: "Caption style", body: "Short opener, one-line benefit, price callout, then HYPD CTA link for both platforms." },
-  { title: "Failure handling", body: "If conversion fails, queue the product for review instead of publishing a broken link." }
-];
-
-const socialAccounts = [
-  { name: "Telegram Main Deals", handle: "@hypd_deals", status: "Connected" },
-  { name: "Telegram VIP Deals", handle: "@hypd_vipdrops", status: "Connected" },
-  { name: "WhatsApp Broadcast A", handle: "+91 creator list", status: "Connected" },
-  { name: "WhatsApp Broadcast B", handle: "+91 premium list", status: "Needs template review" }
-];
+type DashboardData = {
+  deals: DealsApiResponse | null;
+  ranking: RankingApiResponse | null;
+};
 
 type SectionKey =
   | "dashboard"
@@ -79,7 +94,19 @@ function SectionShell({
   );
 }
 
-function OverviewPanel() {
+function formatTimestamp(value: string | null) {
+  if (!value) return "Pending";
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function OverviewPanel({ data }: { data: DashboardData }) {
+  const { creator } = useCreatorAuth();
+
   return (
     <div className="space-y-6">
       <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
@@ -87,21 +114,50 @@ function OverviewPanel() {
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Dashboard overview</p>
             <h2 className="mt-3 font-headline text-4xl font-extrabold tracking-[-0.05em] text-text">
-              Welcome back, Piyush Jangir Jangir.
+              Welcome back, @{creator?.hypdUsername ?? "creator"}.
             </h2>
             <p className="mt-2 text-sm leading-7 text-muted">
-              This is your command center for deal performance, platform flow, bot health, and creator distribution.
+              This is your live command center for deal performance, ranking flow, refresh state, and creator operations.
             </p>
           </div>
           <div className="rounded-[1.4rem] bg-[linear-gradient(180deg,rgba(255,171,243,0.12),rgba(138,35,135,0.18))] px-5 py-4 shadow-ambient">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Data window</p>
-            <p className="mt-2 font-headline text-lg font-bold tracking-[-0.03em] text-text">March 2026 snapshot</p>
+            <p className="mt-2 font-headline text-lg font-bold tracking-[-0.03em] text-text">Live pipeline status</p>
           </div>
         </div>
       </section>
 
       <DashboardActions />
       <DashboardLiveIntelligence />
+
+      {data.deals ? (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-[1.35rem] bg-surface-card p-5 shadow-ambient">
+            <p className="text-sm text-muted">Marketplace boards</p>
+            <p className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.05em] text-text">
+              {Object.values(data.deals.topDealsByMarketplace).filter((deals) => deals.length > 0).length}
+            </p>
+          </article>
+          <article className="rounded-[1.35rem] bg-surface-card p-5 shadow-ambient">
+            <p className="text-sm text-muted">Live queue items</p>
+            <p className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.05em] text-text">
+              {Object.values(data.deals.topDealsByMarketplace).flat().length}
+            </p>
+          </article>
+          <article className="rounded-[1.35rem] bg-surface-card p-5 shadow-ambient">
+            <p className="text-sm text-muted">Refresh status</p>
+            <p className="mt-3 font-headline text-2xl font-extrabold tracking-[-0.05em] text-text">
+              {data.deals.refresh.lastStatus}
+            </p>
+          </article>
+          <article className="rounded-[1.35rem] bg-surface-card p-5 shadow-ambient">
+            <p className="text-sm text-muted">Next refresh</p>
+            <p className="mt-3 font-headline text-2xl font-extrabold tracking-[-0.05em] text-text">
+              {formatTimestamp(data.deals.refresh.nextRefreshAt)}
+            </p>
+          </article>
+        </section>
+      ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
@@ -113,7 +169,9 @@ function OverviewPanel() {
   );
 }
 
-function TopDealsQueuePanel() {
+function TopDealsQueuePanel({ data }: { data: DashboardData }) {
+  const topDeals = data.ranking?.topDeals ?? [];
+
   return (
     <SectionShell
       eyebrow="Queue"
@@ -122,52 +180,66 @@ function TopDealsQueuePanel() {
     >
       <DashboardPipeline />
       <DashboardLiveQueue />
+      {topDeals.length > 0 ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {topDeals.slice(0, 3).map((deal, index) => (
+            <article key={deal.id} className="rounded-[1.35rem] bg-surface-low p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Priority #{index + 1}</p>
+              <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{deal.title}</h3>
+              <p className="mt-2 text-sm text-muted">
+                {deal.marketplace} • {deal.channelsCount} channels • score {deal.score}
+              </p>
+            </article>
+          ))}
+        </div>
+      ) : null}
     </SectionShell>
   );
 }
 
-function ManualPushesPanel() {
+function ManualPushesPanel({ data }: { data: DashboardData }) {
+  const topDeals = data.ranking?.topDeals ?? [];
+
   return (
     <SectionShell
       eyebrow="Campaigns"
       title="Manual Pushes"
-      description="Use this view for sponsored placements, priority campaigns, and any deal that needs human review before publishing."
+      description="This panel is now reserved for real manual push operations. It will stay empty until connected publishing actions write live records here."
     >
-      <div className="grid gap-4 xl:grid-cols-3">
-        {manualPushes.map((push) => (
-          <article key={push.title} className="rounded-[1.35rem] bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">{push.status}</p>
-            <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{push.title}</h3>
-            <p className="mt-2 text-sm text-muted">{push.audience}</p>
-            <p className="mt-4 text-sm leading-7 text-muted">{push.note}</p>
-          </article>
-        ))}
-      </div>
-
-      <div className="rounded-[1.5rem] bg-[linear-gradient(180deg,rgba(255,171,243,0.18),rgba(138,35,135,0.34))] p-6 shadow-ambient">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Recent converted links</p>
-        <div className="mt-5 grid gap-4">
-          {recentLinks.map((link) => (
-            <div key={link.id} className="rounded-[1.2rem] bg-white/10 px-4 py-4 backdrop-blur-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-headline text-lg font-bold tracking-[-0.03em] text-text">{link.title}</h3>
-                  <p className="mt-2 break-all text-sm text-text/80">{link.convertedUrl}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">{link.clicks}</p>
-                  <p className="text-xs uppercase tracking-[0.24em] text-primary">Clicks</p>
+      <div className="rounded-[1.5rem] bg-surface-low p-6">
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Manual queue status</p>
+        <p className="mt-3 text-sm leading-7 text-muted">
+          {topDeals.length > 0
+            ? `${topDeals.length} live ranked deals are available to turn into manual pushes.`
+            : "No live ranked deals are available for manual push yet."}
+        </p>
+        {topDeals.length > 0 ? (
+          <div className="mt-5 grid gap-3">
+            {topDeals.slice(0, 5).map((deal) => (
+              <div key={deal.id} className="rounded-[1.2rem] bg-surface-card px-4 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-headline text-lg font-bold tracking-[-0.03em] text-text">{deal.title}</h3>
+                    <p className="mt-2 text-sm text-muted">
+                      {deal.marketplace} • {deal.channelsCount} channels • validation {deal.validationStatus ?? "unverified"}
+                    </p>
+                  </div>
+                  <p className="font-headline text-xl font-extrabold tracking-[-0.04em] text-text">
+                    {deal.currentPrice ? `₹${deal.currentPrice.toLocaleString("en-IN")}` : "N/A"}
+                  </p>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </SectionShell>
   );
 }
 
-function TelegramFlowPanel() {
+function TelegramFlowPanel({ data }: { data: DashboardData }) {
+  const telegram = data.ranking?.integrations.telegram;
+
   return (
     <SectionShell
       eyebrow="Telegram"
@@ -178,21 +250,38 @@ function TelegramFlowPanel() {
         <SimpleBarChart />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        {["Pull from queue", "Format caption", "Post to channel"].map((step, index) => (
+        {[
+          `Readable channels ${telegram?.accessibleNow ?? 0}`,
+          `Blocked channels ${telegram?.blockedPendingAccess ?? 0}`,
+          `Addlists pending ${telegram?.addlistsPendingExpansion ?? 0}`
+        ].map((step, index) => (
           <article key={step} className="rounded-[1.3rem] bg-surface-low p-5">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Step {index + 1}</p>
             <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{step}</h3>
             <p className="mt-3 text-sm leading-7 text-muted">
-              Telegram posts should include the strongest hook, the best visible discount, and a clean HYPD link.
+              {index === 0
+                ? "These channels are currently available for live Telegram discovery."
+                : index === 1
+                  ? "These sources still need account access before they can contribute deal signals."
+                  : "These Telegram folders still need channel expansion into direct sources."}
             </p>
           </article>
         ))}
       </div>
+      {telegram?.accessibleChannels?.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {telegram.accessibleChannels.slice(0, 6).map((channel) => (
+            <div key={channel.id} className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
+              {channel.title ?? channel.handle ?? `Channel ${channel.id}`}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </SectionShell>
   );
 }
 
-function WhatsAppFlowPanel() {
+function WhatsAppFlowPanel({ data }: { data: DashboardData }) {
   return (
     <SectionShell
       eyebrow="WhatsApp"
@@ -201,58 +290,69 @@ function WhatsAppFlowPanel() {
     >
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          "Select high-conversion products",
-          "Apply approved templates",
-          "Send to broadcast segments"
+          `${data.deals?.validatedDealsCount ?? 0} validated deals`,
+          `${data.deals?.telegramDealsCount ?? 0} Telegram-sourced deals`,
+          data.deals?.refresh.lastStatus ?? "Refresh pending"
         ].map((step, index) => (
           <article key={step} className="rounded-[1.3rem] bg-surface-low p-5">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Phase {index + 1}</p>
             <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{step}</h3>
             <p className="mt-3 text-sm leading-7 text-muted">
-              WhatsApp performs best with shorter copy, stronger urgency, and one clear CTA linked to HYPD tracking.
+              {index === 0
+                ? "These are the strongest candidates for short-form broadcast pushes once delivery is connected."
+                : index === 1
+                  ? "These are the raw discovery inputs currently feeding the overall marketplace queue."
+                  : "This is the current pipeline refresh state that downstream delivery will depend on."}
             </p>
           </article>
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {resources.map((resource) => (
-          <div key={resource.label} className="rounded-[1.3rem] bg-surface-low px-5 py-5">
-            <p className="text-sm text-muted">{resource.label}</p>
-            <p className="mt-2 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">{resource.value}</p>
-          </div>
-        ))}
+      <div className="rounded-[1.3rem] bg-surface-low px-5 py-5">
+        <p className="text-sm text-muted">Status</p>
+        <p className="mt-2 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">Awaiting live WhatsApp delivery integration</p>
       </div>
     </SectionShell>
   );
 }
 
-function FiltersPanel() {
+function FiltersPanel({ data }: { data: DashboardData }) {
+  const marketplaceCoverage = useMemo(
+    () =>
+      Object.entries(data.deals?.topDealsByMarketplace ?? {}).map(([marketplace, deals]) => ({
+        marketplace,
+        count: deals.length
+      })),
+    [data.deals]
+  );
+
   return (
     <SectionShell
       eyebrow="Rules"
       title="Filters"
-      description="Shape the deal queue with pricing, category, demand, and marketplace filters before distribution begins."
+      description="Shape the deal queue with real marketplace, price, and freshness rules before distribution begins."
     >
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {filters.map((filter) => (
-          <div key={filter} className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
-            {filter}
+        {marketplaceCoverage.map((item) => (
+          <div key={item.marketplace} className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
+            {item.marketplace}: {item.count} live deals
           </div>
         ))}
       </div>
       <div className="rounded-[1.5rem] bg-surface-low p-6">
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Filtering strategy</p>
         <p className="mt-3 text-sm leading-7 text-muted">
-          Use stricter filters for WhatsApp premium lists and broader filters for Telegram discovery channels.
-          That helps you protect audience quality while still testing more products in wider public feeds.
+          Filters now come only from live deal attributes. There are no seeded filter presets in the app anymore.
+          Use stricter rules for broadcast channels and broader rules for discovery feeds.
         </p>
       </div>
     </SectionShell>
   );
 }
 
-function BotSettingsPanel() {
+function BotSettingsPanel({ data }: { data: DashboardData }) {
+  const priorities = data.ranking?.integrations.marketplaces.rankingPriority ?? [];
+
   return (
     <SectionShell
       eyebrow="Configuration"
@@ -260,18 +360,35 @@ function BotSettingsPanel() {
       description="Control how your Telegram and WhatsApp automations behave when publishing, retrying, or waiting for approval."
     >
       <div className="grid gap-4 lg:grid-cols-3">
-        {botSettings.map((setting) => (
-          <article key={setting.title} className="rounded-[1.35rem] bg-surface-low p-5">
-            <h3 className="font-headline text-xl font-bold tracking-[-0.03em] text-text">{setting.title}</h3>
-            <p className="mt-3 text-sm leading-7 text-muted">{setting.body}</p>
-          </article>
-        ))}
+        <article className="rounded-[1.35rem] bg-surface-low p-5">
+          <h3 className="font-headline text-xl font-bold tracking-[-0.03em] text-text">Refresh cadence</h3>
+          <p className="mt-3 text-sm leading-7 text-muted">Next run {formatTimestamp(data.ranking?.refresh.nextRefreshAt ?? null)}</p>
+        </article>
+        <article className="rounded-[1.35rem] bg-surface-low p-5">
+          <h3 className="font-headline text-xl font-bold tracking-[-0.03em] text-text">Pipeline status</h3>
+          <p className="mt-3 text-sm leading-7 text-muted">{data.ranking?.refresh.lastStatus ?? "Pending"}</p>
+        </article>
+        <article className="rounded-[1.35rem] bg-surface-low p-5">
+          <h3 className="font-headline text-xl font-bold tracking-[-0.03em] text-text">HYPD integration</h3>
+          <p className="mt-3 text-sm leading-7 text-muted">{data.ranking?.integrations.hypd.status ?? "Pending"}</p>
+        </article>
       </div>
+      {priorities.length ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {priorities.map((priority) => (
+            <div key={priority} className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
+              {priority}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </SectionShell>
   );
 }
 
-function SocialAccountsPanel() {
+function SocialAccountsPanel({ data }: { data: DashboardData }) {
+  const telegram = data.ranking?.integrations.telegram;
+
   return (
     <SectionShell
       eyebrow="Accounts"
@@ -279,13 +396,18 @@ function SocialAccountsPanel() {
       description="See which channel destinations are connected and where more setup or review is still required."
     >
       <div className="grid gap-4 md:grid-cols-2">
-        {socialAccounts.map((account) => (
-          <article key={account.name} className="rounded-[1.35rem] bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">{account.status}</p>
-            <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{account.name}</h3>
-            <p className="mt-2 text-sm text-muted">{account.handle}</p>
-          </article>
-        ))}
+        <article className="rounded-[1.35rem] bg-surface-low p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram readable</p>
+          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{telegram?.accessibleNow ?? 0}</h3>
+          <p className="mt-2 text-sm text-muted">of {telegram?.totalChannels ?? 0} tracked sources</p>
+        </article>
+        <article className="rounded-[1.35rem] bg-surface-low p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Pending access</p>
+          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">
+            {(telegram?.blockedPendingAccess ?? 0) + (telegram?.addlistsPendingExpansion ?? 0)}
+          </h3>
+          <p className="mt-2 text-sm text-muted">blocked or addlist sources</p>
+        </article>
       </div>
     </SectionShell>
   );
@@ -293,20 +415,39 @@ function SocialAccountsPanel() {
 
 export function DashboardOverview() {
   const [activeKey, setActiveKey] = useState<SectionKey>("dashboard");
+  const [data, setData] = useState<DashboardData>({ deals: null, ranking: null });
+
+  useEffect(() => {
+    async function load() {
+      const [dealsResponse, rankingResponse] = await Promise.all([
+        fetch("/api/deals"),
+        fetch("/api/ranking")
+      ]);
+
+      const [deals, ranking] = (await Promise.all([
+        dealsResponse.json(),
+        rankingResponse.json()
+      ])) as [DealsApiResponse, RankingApiResponse];
+
+      setData({ deals, ranking });
+    }
+
+    load().catch(() => setData({ deals: null, ranking: null }));
+  }, []);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.28fr_0.72fr]">
       <DashboardSidePanel activeKey={activeKey} onSelect={(key) => setActiveKey(key as SectionKey)} />
 
       <div className="space-y-6">
-        {activeKey === "dashboard" ? <OverviewPanel /> : null}
-        {activeKey === "topDealsQueue" ? <TopDealsQueuePanel /> : null}
-        {activeKey === "manualPushes" ? <ManualPushesPanel /> : null}
-        {activeKey === "telegramFlow" ? <TelegramFlowPanel /> : null}
-        {activeKey === "whatsAppFlow" ? <WhatsAppFlowPanel /> : null}
-        {activeKey === "filters" ? <FiltersPanel /> : null}
-        {activeKey === "botSettings" ? <BotSettingsPanel /> : null}
-        {activeKey === "socialAccounts" ? <SocialAccountsPanel /> : null}
+        {activeKey === "dashboard" ? <OverviewPanel data={data} /> : null}
+        {activeKey === "topDealsQueue" ? <TopDealsQueuePanel data={data} /> : null}
+        {activeKey === "manualPushes" ? <ManualPushesPanel data={data} /> : null}
+        {activeKey === "telegramFlow" ? <TelegramFlowPanel data={data} /> : null}
+        {activeKey === "whatsAppFlow" ? <WhatsAppFlowPanel data={data} /> : null}
+        {activeKey === "filters" ? <FiltersPanel data={data} /> : null}
+        {activeKey === "botSettings" ? <BotSettingsPanel data={data} /> : null}
+        {activeKey === "socialAccounts" ? <SocialAccountsPanel data={data} /> : null}
       </div>
     </div>
   );

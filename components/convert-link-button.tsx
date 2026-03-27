@@ -15,7 +15,7 @@ export function ConvertLinkButton({
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const { creator, isAuthenticated } = useCreatorAuth();
-  const conversion = generateHypdConversion(originalUrl, creator?.hypdUsername ?? "creatordemo");
+  const conversion = generateHypdConversion(originalUrl, creator?.hypdUsername ?? "creator");
   const [converted, setConverted] = useState(conversion?.shortLink ?? "");
 
   async function onCopy() {

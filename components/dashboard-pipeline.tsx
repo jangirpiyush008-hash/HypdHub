@@ -15,7 +15,7 @@ export function DashboardPipeline() {
           </h3>
         </div>
         <div className="rounded-xl bg-surface-top px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-text">
-          March 2026
+          Live workflow
         </div>
       </div>
 

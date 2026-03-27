@@ -27,7 +27,7 @@ export function DashboardLiveQueue() {
   if (deals.length === 0) {
     return (
       <div className="rounded-[1.4rem] bg-surface-low p-5 text-sm text-muted">
-        Loading queue from live deal pipeline...
+        No live queue items are available yet.
       </div>
     );
   }
