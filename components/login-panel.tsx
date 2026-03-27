@@ -15,6 +15,7 @@ export function LoginPanel() {
   const [otp, setOtp] = useState("");
   const [status, setStatus] = useState("Use your HYPD registered mobile number to request OTP.");
   const [otpStepReady, setOtpStepReady] = useState(false);
+  const [loading, setLoading] = useState<"idle" | "otp" | "verify">("idle");
 
   useEffect(() => {
     if (isReady && isAuthenticated) {
@@ -22,15 +23,19 @@ export function LoginPanel() {
     }
   }, [isAuthenticated, isReady, nextPath, router]);
 
-  function handleRequestOtp() {
-    const result = requestOtp(mobileNumber);
+  async function handleRequestOtp() {
+    setLoading("otp");
+    const result = await requestOtp(mobileNumber);
     setStatus(result.message);
     setOtpStepReady(result.ok);
+    setLoading("idle");
   }
 
-  function handleVerifyOtp() {
-    const result = verifyOtp(otp);
+  async function handleVerifyOtp() {
+    setLoading("verify");
+    const result = await verifyOtp(otp);
     setStatus(result.message);
+    setLoading("idle");
 
     if (result.ok) {
       router.replace(nextPath);
@@ -67,9 +72,10 @@ export function LoginPanel() {
           <button
             type="button"
             onClick={handleRequestOtp}
+            disabled={loading !== "idle"}
             className="rounded-xl bg-cta-gradient px-5 py-3 font-headline text-sm font-bold text-white shadow-glow"
           >
-            Send OTP
+            {loading === "otp" ? "Sending OTP..." : "Send OTP"}
           </button>
 
           <label className="space-y-2">
@@ -79,17 +85,17 @@ export function LoginPanel() {
               onChange={(event) => setOtp(event.target.value)}
               placeholder="Enter 6-digit OTP"
               className="w-full rounded-xl bg-surface-top px-4 py-3 text-sm text-text outline-none"
-              disabled={!otpStepReady}
+              disabled={!otpStepReady || loading !== "idle"}
             />
           </label>
 
           <button
             type="button"
             onClick={handleVerifyOtp}
-            disabled={!otpStepReady}
+            disabled={!otpStepReady || loading !== "idle"}
             className="rounded-xl bg-surface-top px-5 py-3 font-headline text-sm font-bold text-text transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Verify OTP
+            {loading === "verify" ? "Verifying..." : "Verify OTP"}
           </button>
         </div>
 

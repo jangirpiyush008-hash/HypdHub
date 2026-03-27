@@ -13,17 +13,45 @@ export function ConvertLinkButton({
   variant?: "primary" | "secondary";
 }) {
   const [copied, setCopied] = useState(false);
-  const { creator } = useCreatorAuth();
+  const [loading, setLoading] = useState(false);
+  const { creator, isAuthenticated } = useCreatorAuth();
   const conversion = generateHypdConversion(originalUrl, creator?.hypdUsername ?? "creatordemo");
-  const converted = conversion?.shortLink ?? "";
+  const [converted, setConverted] = useState(conversion?.shortLink ?? "");
 
   async function onCopy() {
     try {
-      await navigator.clipboard.writeText(converted);
+      if (isAuthenticated && !converted) {
+        setLoading(true);
+        const response = await fetch("/api/hypd/convert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            sourceUrl: originalUrl
+          })
+        });
+        const payload = (await response.json()) as {
+          ok: boolean;
+          result?: { shortLink?: string };
+        };
+
+        if (payload.ok && payload.result?.shortLink) {
+          setConverted(payload.result.shortLink);
+          await navigator.clipboard.writeText(payload.result.shortLink);
+        } else {
+          await navigator.clipboard.writeText(conversion?.shortLink ?? "");
+        }
+      } else {
+        await navigator.clipboard.writeText(converted || conversion?.shortLink || "");
+      }
+
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
       setCopied(false);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -39,7 +67,7 @@ export function ConvertLinkButton({
       className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-headline text-sm font-bold transition-transform active:scale-[0.98] ${className}`}
     >
       {copied ? <CopyIcon className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" />}
-      {copied ? "Copied Link" : "Convert Link"}
+      {copied ? "Copied Link" : loading ? "Converting..." : "Convert Link"}
     </button>
   );
 }

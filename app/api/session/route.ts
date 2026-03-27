@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
-import { mockCreatorProfile } from "@/lib/auth";
+import { fetchCurrentHypdCreator } from "@/lib/hypd-server";
 
 export async function GET() {
+  const creator = await fetchCurrentHypdCreator();
+
+  if (!creator) {
+    return NextResponse.json(
+      {
+        status: "unauthenticated",
+        creator: null
+      },
+      { status: 401 }
+    );
+  }
+
   return NextResponse.json({
-    status: "mock_session_ready",
-    creator: mockCreatorProfile,
-    note: "Replace with real HYPD auth flow tomorrow."
+    status: "authenticated",
+    creator
   });
 }

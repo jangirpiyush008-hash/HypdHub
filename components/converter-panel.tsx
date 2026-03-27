@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCreatorAuth } from "@/components/auth-provider";
 import { ArrowRightIcon, CopyIcon, LinkIcon, SparklesIcon } from "@/components/icons";
 import { HypdConversionResult, generateHypdConversion } from "@/lib/hypd-links";
@@ -97,26 +97,109 @@ function ParserTable({ output }: { output: HypdConversionResult | null }) {
 }
 
 export function ConverterPanel() {
-  const { creator } = useCreatorAuth();
+  const { creator, isAuthenticated } = useCreatorAuth();
   const username = creator?.hypdUsername ?? "creatordemo";
   const [url, setUrl] = useState(defaultUrl);
   const [bulkText, setBulkText] = useState(bulkDefault);
   const [copied, setCopied] = useState(false);
   const [copiedFull, setCopiedFull] = useState(false);
   const [csvCopied, setCsvCopied] = useState(false);
-
-  const output = useMemo(() => generateHypdConversion(url, username), [url, username]);
-
-  const bulkResults = useMemo(() => {
-    return bulkText
-      .split("\n")
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .map((entry) => generateHypdConversion(entry, username))
-      .filter((entry): entry is HypdConversionResult => Boolean(entry));
-  }, [bulkText, username]);
+  const [output, setOutput] = useState<HypdConversionResult | null>(
+    generateHypdConversion(defaultUrl, username)
+  );
+  const [bulkResults, setBulkResults] = useState<HypdConversionResult[]>([]);
+  const [convertStatus, setConvertStatus] = useState("Login with your real HYPD account to run live conversion.");
+  const [isConverting, setIsConverting] = useState(false);
+  const [isBulkConverting, setIsBulkConverting] = useState(false);
 
   const csvContent = useMemo(() => buildCsv(bulkResults), [bulkResults]);
+
+  useEffect(() => {
+    setOutput(generateHypdConversion(url, username));
+  }, [url, username]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setConvertStatus("Login with your real HYPD account to run live conversion.");
+    }
+  }, [isAuthenticated]);
+
+  async function convertSingle(sourceUrl: string) {
+    const response = await fetch("/api/hypd/convert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sourceUrl
+      })
+    });
+    const result = (await response.json()) as {
+      ok: boolean;
+      message?: string;
+      result?: HypdConversionResult;
+    };
+
+    if (!response.ok || !result.ok || !result.result) {
+      throw new Error(result.message || "Unable to convert this link on HYPD.");
+    }
+
+    return result.result;
+  }
+
+  async function handleLiveConvert() {
+    if (!isAuthenticated) {
+      setConvertStatus("Please login with your real HYPD account first.");
+      return;
+    }
+
+    setIsConverting(true);
+
+    try {
+      const result = await convertSingle(url);
+      setOutput(result);
+      setConvertStatus(`Live HYPD conversion complete for ${result.marketplace}.`);
+    } catch (error) {
+      setOutput(generateHypdConversion(url, username));
+      setConvertStatus(error instanceof Error ? error.message : "Unable to convert this link on HYPD.");
+    } finally {
+      setIsConverting(false);
+    }
+  }
+
+  async function handleBulkConvert() {
+    if (!isAuthenticated) {
+      setConvertStatus("Please login with your real HYPD account first.");
+      return;
+    }
+
+    const entries = bulkText
+      .split("\n")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+    setIsBulkConverting(true);
+
+    try {
+      const results: HypdConversionResult[] = [];
+
+      for (const entry of entries) {
+        try {
+          results.push(await convertSingle(entry));
+        } catch {
+          const fallback = generateHypdConversion(entry, username);
+          if (fallback) {
+            results.push(fallback);
+          }
+        }
+      }
+
+      setBulkResults(results);
+      setConvertStatus(`Live HYPD bulk conversion completed for ${results.length} link${results.length === 1 ? "" : "s"}.`);
+    } finally {
+      setIsBulkConverting(false);
+    }
+  }
 
   async function copyShortLink() {
     if (!output?.shortLink) return;
@@ -219,6 +302,15 @@ export function ConverterPanel() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
+                onClick={handleLiveConvert}
+                disabled={!isAuthenticated || isConverting}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cta-gradient px-5 py-3 font-headline text-sm font-bold text-white shadow-glow transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <LinkIcon className="h-4 w-4" />
+                {isConverting ? "Converting Live..." : "Convert With HYPD"}
+              </button>
+              <button
+                type="button"
                 onClick={copyShortLink}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-cta-gradient px-5 py-3 font-headline text-sm font-bold text-white shadow-glow transition-transform active:scale-[0.98]"
               >
@@ -243,8 +335,7 @@ export function ConverterPanel() {
               {username}
             </h3>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Username-based HYPD link generation is active in the demo. Real save-to-HYPD and commission
-              fetch will come from the HYPD API.
+              {convertStatus}
             </p>
           </div>
 
@@ -298,6 +389,14 @@ export function ConverterPanel() {
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={handleBulkConvert}
+              disabled={!isAuthenticated || isBulkConverting}
+              className="rounded-xl bg-cta-gradient px-5 py-3 font-headline text-sm font-bold text-white shadow-glow disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isBulkConverting ? "Converting..." : "Run Live Bulk Conversion"}
+            </button>
             <button
               type="button"
               onClick={copyCsv}

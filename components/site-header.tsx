@@ -68,7 +68,7 @@ export function SiteHeader() {
           {isAuthenticated ? (
             <button
               type="button"
-              onClick={logout}
+              onClick={() => void logout()}
               className="rounded-xl bg-cta-gradient px-4 py-2 font-headline text-xs font-bold text-white shadow-glow transition-transform active:scale-95 sm:px-5"
             >
               Logout

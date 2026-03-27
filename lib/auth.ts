@@ -1,30 +1,9 @@
 import { CreatorProfile } from "@/lib/types";
 
-export const registeredHypdUsers: CreatorProfile[] = [
-  {
-    id: "user_001",
-    hypdUserId: "creator_324",
-    hypdUsername: "harshdubey123",
-    name: "Piyush Jangir Jangir",
-    email: "piyush@hypd.store",
-    mobileNumber: "+91 98765 43210",
-    role: "admin"
-  },
-  {
-    id: "user_002",
-    hypdUserId: "creator_672",
-    hypdUsername: "aaravsharma",
-    name: "Aarav Sharma",
-    email: "aarav@hypd.store",
-    mobileNumber: "+91 91234 56780",
-    role: "creator"
-  }
-];
-
-export const mockCreatorProfile = registeredHypdUsers[0];
-
 export const CREATOR_SESSION_KEY = "hypd_creator_session";
-export const MOCK_OTP = "123456";
+export const HYPD_UPSTREAM_SESSION_COOKIE = "hypd_upstream_session";
+export const ENTITY_URL = "https://entity.hypd.store";
+export const CATALOG_URL = "https://catalog2.hypd.store";
 
 export function normalizeMobileNumber(value: string) {
   const digits = value.replace(/\D/g, "");
@@ -40,14 +19,14 @@ export function normalizeMobileNumber(value: string) {
   return digits;
 }
 
-export function findRegisteredHypdUser(mobileNumber: string) {
-  const normalized = normalizeMobileNumber(mobileNumber);
+export function formatIndianMobileNumber(value: string) {
+  const normalized = normalizeMobileNumber(value);
 
-  return (
-    registeredHypdUsers.find(
-      (profile) => normalizeMobileNumber(profile.mobileNumber) === normalized
-    ) ?? null
-  );
+  if (normalized.length === 12 && normalized.startsWith("91")) {
+    return `+${normalized}`;
+  }
+
+  return value;
 }
 
 export function serializeCreator(profile: CreatorProfile) {
