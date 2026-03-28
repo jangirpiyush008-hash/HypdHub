@@ -42,9 +42,7 @@ export function DashboardLiveQueue() {
               <h3 className="mt-2 font-headline text-xl font-bold tracking-[-0.03em] text-text">
                 {deal.title}
               </h3>
-              <p className="mt-2 text-sm text-muted">
-                {deal.marketplace} • {deal.category} • {deal.channelsCount} channels
-              </p>
+              <p className="mt-2 text-sm text-muted">{deal.marketplace} • {deal.category}</p>
             </div>
             <div className="text-right">
               <p className="font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">

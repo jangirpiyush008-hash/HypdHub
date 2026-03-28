@@ -56,7 +56,7 @@ export function DashboardLiveIntelligence() {
   }
 
   const stats = [
-    { label: "Unique Telegram deals", value: String(data.telegramDealsCount) },
+    { label: "Live deals discovered", value: String(data.telegramDealsCount) },
     { label: "Validated public pages", value: String(data.validatedDealsCount) },
     { label: "Tracked deals in history", value: String(data.history.trackedDeals) },
     { label: "Stored snapshots", value: String(data.history.trackedSnapshots) }

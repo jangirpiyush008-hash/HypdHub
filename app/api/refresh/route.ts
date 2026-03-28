@@ -17,7 +17,7 @@ export async function POST() {
 
   return NextResponse.json({
     ok: true,
-    message: "Refresh completed with Telegram ingestion, public-page validation, and history tracking.",
+    message: "Live deals refreshed successfully.",
     telegramDealsCount: telegram.deals.length,
     validatedDealsCount,
     history,

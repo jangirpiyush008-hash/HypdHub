@@ -1,77 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  AUTOMATIONS_SAVED_AT_KEY,
+  createTelegramAutomation,
+  createWhatsAppAutomation,
+  MAX_AUTOMATIONS,
+  PostFormat,
+  TELEGRAM_AUTOMATIONS_KEY,
+  TelegramAutomation,
+  WHATSAPP_AUTOMATIONS_KEY,
+  WhatsAppAutomation
+} from "@/lib/automation-config";
 
-type TelegramConfig = {
-  botToken: string;
-  botUsername: string;
-  channelUsername: string;
-  channelId: string;
-  adminUserId: string;
-  webhookUrl: string;
-};
-
-type WhatsAppConfig = {
-  businessName: string;
-  businessNumber: string;
-  phoneNumberId: string;
-  wabaId: string;
-  permanentToken: string;
-  webhookVerifyToken: string;
-  defaultTemplate: string;
-};
-
-type AutomationConfig = {
-  conversionEnabled: boolean;
-  autoForwardingEnabled: boolean;
-  autoPostingEnabled: boolean;
-  postingWindow: string;
-  fallbackChannel: string;
-  approvalRequired: boolean;
-};
-
-const telegramSteps = [
-  "Create a Telegram bot with BotFather.",
-  "Copy the bot token and bot username.",
-  "Add the bot as admin in your Telegram deal channel.",
-  "Capture the channel username or numeric channel ID.",
-  "Add webhook and posting credentials on the server."
+const postFormats: Array<{ value: PostFormat; label: string }> = [
+  { value: "with_image", label: "With image" },
+  { value: "without_image", label: "Without image" },
+  { value: "both", label: "Both" }
 ];
-
-const whatsappSteps = [
-  "Create a Meta developer app and enable WhatsApp Business Cloud API.",
-  "Verify your business phone number and collect the Phone Number ID.",
-  "Save the WABA ID and permanent access token.",
-  "Create approved message templates for daily deals and fallback alerts.",
-  "Set a webhook verify token and callback URL for automation events."
-];
-
-const featureRows = [
-  {
-    title: "Link convert",
-    body: "Every marketplace or HYPD store URL should be converted into the creator's live HYPD link before sending."
-  },
-  {
-    title: "Auto forwarder",
-    body: "Approved deals can be forwarded automatically into the selected Telegram channel or WhatsApp flow."
-  },
-  {
-    title: "Auto posting",
-    body: "Scheduled pushes can publish the formatted top deals without manual copy-paste."
-  }
-];
-
-function StorageNotice() {
-  return (
-    <div className="rounded-[1.35rem] bg-surface-low p-5">
-      <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Current behavior</p>
-      <p className="mt-3 text-sm leading-7 text-muted">
-        These setup details are saved in this browser for now so creators can prepare their automation settings.
-        Server-side saving and live bot execution can be wired next.
-      </p>
-    </div>
-  );
-}
 
 function InputField({
   label,
@@ -91,6 +37,31 @@ function InputField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        className="w-full rounded-xl bg-surface-low px-4 py-3 text-sm text-text outline-none placeholder:text-muted"
+      />
+    </label>
+  );
+}
+
+function TextAreaField({
+  label,
+  value,
+  placeholder,
+  onChange
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-xs font-bold uppercase tracking-[0.24em] text-muted">{label}</span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        rows={3}
         className="w-full rounded-xl bg-surface-low px-4 py-3 text-sm text-text outline-none placeholder:text-muted"
       />
     </label>
@@ -132,55 +103,368 @@ function ToggleRow({
   );
 }
 
+function FormatPicker({
+  value,
+  onChange
+}: {
+  value: PostFormat;
+  onChange: (value: PostFormat) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted">Post format</p>
+      <div className="flex flex-wrap gap-2">
+        {postFormats.map((format) => {
+          const selected = value === format.value;
+          return (
+            <button
+              key={format.value}
+              type="button"
+              onClick={() => onChange(format.value)}
+              className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] ${
+                selected ? "bg-cta-gradient text-white shadow-glow" : "bg-surface-low text-text"
+              }`}
+            >
+              {format.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AutomationCardShell({
+  title,
+  subtitle,
+  onRemove,
+  children
+}: {
+  title: string;
+  subtitle: string;
+  onRemove: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <article className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">{subtitle}</p>
+          <h3 className="mt-3 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">{title}</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="rounded-xl bg-surface-low px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-text"
+        >
+          Remove
+        </button>
+      </div>
+      <div className="mt-6 space-y-6">{children}</div>
+    </article>
+  );
+}
+
+function TelegramAutomationCard({
+  automation,
+  index,
+  onChange,
+  onRemove
+}: {
+  automation: TelegramAutomation;
+  index: number;
+  onChange: (next: TelegramAutomation) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <AutomationCardShell
+      title={automation.name || `Telegram Automation ${index + 1}`}
+      subtitle="Telegram automation"
+      onRemove={onRemove}
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
+        <InputField
+          label="Automation name"
+          value={automation.name}
+          placeholder="Main Telegram Channel"
+          onChange={(value) => onChange({ ...automation, name: value })}
+        />
+        <InputField
+          label="Source"
+          value={automation.sourceLabel}
+          placeholder="Live deals feed"
+          onChange={(value) => onChange({ ...automation, sourceLabel: value })}
+        />
+        <InputField
+          label="Bot token"
+          value={automation.botToken}
+          placeholder="Paste BotFather token"
+          onChange={(value) => onChange({ ...automation, botToken: value })}
+        />
+        <InputField
+          label="Bot username"
+          value={automation.botUsername}
+          placeholder="@your_bot_username"
+          onChange={(value) => onChange({ ...automation, botUsername: value })}
+        />
+        <InputField
+          label="Channel username"
+          value={automation.channelUsername}
+          placeholder="@your_deals_channel"
+          onChange={(value) => onChange({ ...automation, channelUsername: value })}
+        />
+        <InputField
+          label="Channel ID"
+          value={automation.channelId}
+          placeholder="-100..."
+          onChange={(value) => onChange({ ...automation, channelId: value })}
+        />
+        <InputField
+          label="Admin user ID"
+          value={automation.adminUserId}
+          placeholder="Telegram admin numeric ID"
+          onChange={(value) => onChange({ ...automation, adminUserId: value })}
+        />
+        <InputField
+          label="Webhook URL"
+          value={automation.webhookUrl}
+          placeholder="https://your-domain.com/api/telegram/webhook"
+          onChange={(value) => onChange({ ...automation, webhookUrl: value })}
+        />
+        <InputField
+          label="Posting window"
+          value={automation.postingWindow}
+          placeholder="10:00 AM, 2:00 PM, 8:00 PM"
+          onChange={(value) => onChange({ ...automation, postingWindow: value })}
+        />
+        <InputField
+          label="Fallback target"
+          value={automation.fallbackTarget}
+          placeholder="Backup Telegram channel"
+          onChange={(value) => onChange({ ...automation, fallbackTarget: value })}
+        />
+      </div>
+
+      <TextAreaField
+        label="Caption template"
+        value={automation.captionTemplate}
+        placeholder="Deal title\nOffer line\nHYPD link\nCTA"
+        onChange={(value) => onChange({ ...automation, captionTemplate: value })}
+      />
+
+      <FormatPicker
+        value={automation.postFormat}
+        onChange={(value) => onChange({ ...automation, postFormat: value })}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ToggleRow
+          label="Link convert"
+          body="Always convert the outgoing link into the creator's HYPD trackable link."
+          checked={automation.linkConversionEnabled}
+          onChange={(value) => onChange({ ...automation, linkConversionEnabled: value })}
+        />
+        <ToggleRow
+          label="Auto forward"
+          body="Forward eligible deals automatically into this Telegram destination."
+          checked={automation.autoForwardEnabled}
+          onChange={(value) => onChange({ ...automation, autoForwardEnabled: value })}
+        />
+        <ToggleRow
+          label="Auto posting"
+          body="Publish scheduled deals automatically without manual copy-paste."
+          checked={automation.autoPostingEnabled}
+          onChange={(value) => onChange({ ...automation, autoPostingEnabled: value })}
+        />
+        <ToggleRow
+          label="Automation enabled"
+          body="Keep this automation active and ready to run."
+          checked={automation.enabled}
+          onChange={(value) => onChange({ ...automation, enabled: value })}
+        />
+      </div>
+    </AutomationCardShell>
+  );
+}
+
+function WhatsAppAutomationCard({
+  automation,
+  index,
+  onChange,
+  onRemove
+}: {
+  automation: WhatsAppAutomation;
+  index: number;
+  onChange: (next: WhatsAppAutomation) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <AutomationCardShell
+      title={automation.name || `WhatsApp Automation ${index + 1}`}
+      subtitle="WhatsApp automation"
+      onRemove={onRemove}
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
+        <InputField
+          label="Automation name"
+          value={automation.name}
+          placeholder="Main WhatsApp Broadcast"
+          onChange={(value) => onChange({ ...automation, name: value })}
+        />
+        <InputField
+          label="Source"
+          value={automation.sourceLabel}
+          placeholder="Live deals feed"
+          onChange={(value) => onChange({ ...automation, sourceLabel: value })}
+        />
+        <InputField
+          label="Business name"
+          value={automation.businessName}
+          placeholder="Your HYPD business name"
+          onChange={(value) => onChange({ ...automation, businessName: value })}
+        />
+        <InputField
+          label="Business number"
+          value={automation.businessNumber}
+          placeholder="+91..."
+          onChange={(value) => onChange({ ...automation, businessNumber: value })}
+        />
+        <InputField
+          label="Phone number ID"
+          value={automation.phoneNumberId}
+          placeholder="Meta phone number ID"
+          onChange={(value) => onChange({ ...automation, phoneNumberId: value })}
+        />
+        <InputField
+          label="WABA ID"
+          value={automation.wabaId}
+          placeholder="WhatsApp Business Account ID"
+          onChange={(value) => onChange({ ...automation, wabaId: value })}
+        />
+        <InputField
+          label="Permanent token"
+          value={automation.permanentToken}
+          placeholder="Meta permanent access token"
+          onChange={(value) => onChange({ ...automation, permanentToken: value })}
+        />
+        <InputField
+          label="Webhook verify token"
+          value={automation.webhookVerifyToken}
+          placeholder="Custom verify token"
+          onChange={(value) => onChange({ ...automation, webhookVerifyToken: value })}
+        />
+        <InputField
+          label="Default template"
+          value={automation.defaultTemplate}
+          placeholder="daily_deal_template"
+          onChange={(value) => onChange({ ...automation, defaultTemplate: value })}
+        />
+        <InputField
+          label="Posting window"
+          value={automation.postingWindow}
+          placeholder="11:00 AM and 7:00 PM"
+          onChange={(value) => onChange({ ...automation, postingWindow: value })}
+        />
+        <InputField
+          label="Fallback target"
+          value={automation.fallbackTarget}
+          placeholder="Backup WhatsApp list"
+          onChange={(value) => onChange({ ...automation, fallbackTarget: value })}
+        />
+      </div>
+
+      <TextAreaField
+        label="Caption template"
+        value={automation.captionTemplate}
+        placeholder="Short deal copy\nOffer line\nHYPD link\nCTA"
+        onChange={(value) => onChange({ ...automation, captionTemplate: value })}
+      />
+
+      <FormatPicker
+        value={automation.postFormat}
+        onChange={(value) => onChange({ ...automation, postFormat: value })}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ToggleRow
+          label="Link convert"
+          body="Always convert marketplace or storefront links into the creator's HYPD trackable link."
+          checked={automation.linkConversionEnabled}
+          onChange={(value) => onChange({ ...automation, linkConversionEnabled: value })}
+        />
+        <ToggleRow
+          label="Auto forward"
+          body="Forward eligible deals automatically into this WhatsApp automation."
+          checked={automation.autoForwardEnabled}
+          onChange={(value) => onChange({ ...automation, autoForwardEnabled: value })}
+        />
+        <ToggleRow
+          label="Auto posting"
+          body="Publish scheduled deals automatically to the configured WhatsApp flow."
+          checked={automation.autoPostingEnabled}
+          onChange={(value) => onChange({ ...automation, autoPostingEnabled: value })}
+        />
+        <ToggleRow
+          label="Automation enabled"
+          body="Keep this automation active and ready to run."
+          checked={automation.enabled}
+          onChange={(value) => onChange({ ...automation, enabled: value })}
+        />
+      </div>
+    </AutomationCardShell>
+  );
+}
+
+function StorageNotice({ savedAt }: { savedAt: string | null }) {
+  return (
+    <div className="rounded-[1.35rem] bg-surface-low p-5">
+      <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Current behavior</p>
+      <p className="mt-3 text-sm leading-7 text-muted">
+        These automation details are stored for now so users can configure up to five Telegram and five WhatsApp
+        automations with link conversion, auto forwarding, auto posting, and image-mode preferences.
+      </p>
+      <p className="mt-3 text-sm text-muted">{savedAt ? `Last saved at ${savedAt}` : "Nothing saved yet."}</p>
+    </div>
+  );
+}
+
 export function ConnectGrid() {
   const [isReady, setIsReady] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [telegram, setTelegram] = useState<TelegramConfig>({
-    botToken: "",
-    botUsername: "",
-    channelUsername: "",
-    channelId: "",
-    adminUserId: "",
-    webhookUrl: ""
-  });
-  const [whatsApp, setWhatsApp] = useState<WhatsAppConfig>({
-    businessName: "",
-    businessNumber: "",
-    phoneNumberId: "",
-    wabaId: "",
-    permanentToken: "",
-    webhookVerifyToken: "",
-    defaultTemplate: ""
-  });
-  const [automation, setAutomation] = useState<AutomationConfig>({
-    conversionEnabled: true,
-    autoForwardingEnabled: true,
-    autoPostingEnabled: false,
-    postingWindow: "",
-    fallbackChannel: "",
-    approvalRequired: true
-  });
+  const [telegramAutomations, setTelegramAutomations] = useState<TelegramAutomation[]>([]);
+  const [whatsAppAutomations, setWhatsAppAutomations] = useState<WhatsAppAutomation[]>([]);
 
   useEffect(() => {
-    const telegramStored = window.localStorage.getItem("hypd-connect-telegram");
-    const whatsAppStored = window.localStorage.getItem("hypd-connect-whatsapp");
-    const automationStored = window.localStorage.getItem("hypd-connect-automation");
-    const savedAtStored = window.localStorage.getItem("hypd-connect-saved-at");
+    const telegramStored = window.localStorage.getItem(TELEGRAM_AUTOMATIONS_KEY);
+    const whatsAppStored = window.localStorage.getItem(WHATSAPP_AUTOMATIONS_KEY);
+    const savedAtStored = window.localStorage.getItem(AUTOMATIONS_SAVED_AT_KEY);
 
-    if (telegramStored) setTelegram(JSON.parse(telegramStored) as TelegramConfig);
-    if (whatsAppStored) setWhatsApp(JSON.parse(whatsAppStored) as WhatsAppConfig);
-    if (automationStored) setAutomation(JSON.parse(automationStored) as AutomationConfig);
+    setTelegramAutomations(
+      telegramStored ? (JSON.parse(telegramStored) as TelegramAutomation[]) : [createTelegramAutomation()]
+    );
+    setWhatsAppAutomations(
+      whatsAppStored ? (JSON.parse(whatsAppStored) as WhatsAppAutomation[]) : [createWhatsAppAutomation()]
+    );
     if (savedAtStored) setSavedAt(savedAtStored);
     setIsReady(true);
   }, []);
 
   function saveDraft() {
-    window.localStorage.setItem("hypd-connect-telegram", JSON.stringify(telegram));
-    window.localStorage.setItem("hypd-connect-whatsapp", JSON.stringify(whatsApp));
-    window.localStorage.setItem("hypd-connect-automation", JSON.stringify(automation));
+    window.localStorage.setItem(TELEGRAM_AUTOMATIONS_KEY, JSON.stringify(telegramAutomations));
+    window.localStorage.setItem(WHATSAPP_AUTOMATIONS_KEY, JSON.stringify(whatsAppAutomations));
     const timestamp = new Date().toLocaleString("en-IN");
-    window.localStorage.setItem("hypd-connect-saved-at", timestamp);
+    window.localStorage.setItem(AUTOMATIONS_SAVED_AT_KEY, timestamp);
     setSavedAt(timestamp);
+  }
+
+  function addTelegramAutomation() {
+    if (telegramAutomations.length >= MAX_AUTOMATIONS) return;
+    setTelegramAutomations((current) => [...current, createTelegramAutomation()]);
+  }
+
+  function addWhatsAppAutomation() {
+    if (whatsAppAutomations.length >= MAX_AUTOMATIONS) return;
+    setWhatsAppAutomations((current) => [...current, createWhatsAppAutomation()]);
   }
 
   if (!isReady) {
@@ -193,8 +477,21 @@ export function ConnectGrid() {
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-5 lg:grid-cols-3">
-        {featureRows.map((feature) => (
+      <section className="grid gap-5 lg:grid-cols-3">
+        {[
+          {
+            title: "Link convert",
+            body: "Every outgoing marketplace or HYPD storefront URL should be converted into the creator's own HYPD link first."
+          },
+          {
+            title: "Auto forward",
+            body: "Deals can be forwarded automatically into each configured Telegram channel or WhatsApp automation."
+          },
+          {
+            title: "Auto posting",
+            body: "Each automation can post with image, without image, or both, based on the user's posting style."
+          }
+        ].map((feature) => (
           <article key={feature.title} className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Automation feature</p>
             <h3 className="mt-4 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
@@ -203,184 +500,116 @@ export function ConnectGrid() {
             <p className="mt-3 text-sm leading-7 text-muted">{feature.body}</p>
           </article>
         ))}
-      </div>
+      </section>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram connection</p>
-          <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
-            Enter the details needed for Telegram automation
-          </h3>
-          <div className="mt-6 grid gap-4">
-            <InputField
-              label="Bot token"
-              value={telegram.botToken}
-              placeholder="Paste BotFather token"
-              onChange={(value) => setTelegram((current) => ({ ...current, botToken: value }))}
-            />
-            <InputField
-              label="Bot username"
-              value={telegram.botUsername}
-              placeholder="@your_bot_username"
-              onChange={(value) => setTelegram((current) => ({ ...current, botUsername: value }))}
-            />
-            <InputField
-              label="Channel username"
-              value={telegram.channelUsername}
-              placeholder="@your_deals_channel"
-              onChange={(value) => setTelegram((current) => ({ ...current, channelUsername: value }))}
-            />
-            <InputField
-              label="Channel ID"
-              value={telegram.channelId}
-              placeholder="-100..."
-              onChange={(value) => setTelegram((current) => ({ ...current, channelId: value }))}
-            />
-            <InputField
-              label="Admin user ID"
-              value={telegram.adminUserId}
-              placeholder="Telegram admin numeric ID"
-              onChange={(value) => setTelegram((current) => ({ ...current, adminUserId: value }))}
-            />
-            <InputField
-              label="Webhook URL"
-              value={telegram.webhookUrl}
-              placeholder="https://your-domain.com/api/telegram/webhook"
-              onChange={(value) => setTelegram((current) => ({ ...current, webhookUrl: value }))}
-            />
-          </div>
-          <div className="mt-6 space-y-3">
-            {telegramSteps.map((step, index) => (
-              <div key={step} className="rounded-[1.2rem] bg-surface-low px-4 py-4">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Step {index + 1}</p>
-                <p className="mt-2 text-sm leading-7 text-muted">{step}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">WhatsApp connection</p>
-          <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
-            Enter the details needed for WhatsApp automation
-          </h3>
-          <div className="mt-6 grid gap-4">
-            <InputField
-              label="Business name"
-              value={whatsApp.businessName}
-              placeholder="Your HYPD business name"
-              onChange={(value) => setWhatsApp((current) => ({ ...current, businessName: value }))}
-            />
-            <InputField
-              label="Business number"
-              value={whatsApp.businessNumber}
-              placeholder="+91..."
-              onChange={(value) => setWhatsApp((current) => ({ ...current, businessNumber: value }))}
-            />
-            <InputField
-              label="Phone number ID"
-              value={whatsApp.phoneNumberId}
-              placeholder="Meta phone number ID"
-              onChange={(value) => setWhatsApp((current) => ({ ...current, phoneNumberId: value }))}
-            />
-            <InputField
-              label="WABA ID"
-              value={whatsApp.wabaId}
-              placeholder="WhatsApp Business Account ID"
-              onChange={(value) => setWhatsApp((current) => ({ ...current, wabaId: value }))}
-            />
-            <InputField
-              label="Permanent token"
-              value={whatsApp.permanentToken}
-              placeholder="Meta permanent access token"
-              onChange={(value) => setWhatsApp((current) => ({ ...current, permanentToken: value }))}
-            />
-            <InputField
-              label="Webhook verify token"
-              value={whatsApp.webhookVerifyToken}
-              placeholder="Custom verify token"
-              onChange={(value) => setWhatsApp((current) => ({ ...current, webhookVerifyToken: value }))}
-            />
-            <InputField
-              label="Default template"
-              value={whatsApp.defaultTemplate}
-              placeholder="daily_deal_template"
-              onChange={(value) => setWhatsApp((current) => ({ ...current, defaultTemplate: value }))}
-            />
-          </div>
-          <div className="mt-6 space-y-3">
-            {whatsappSteps.map((step, index) => (
-              <div key={step} className="rounded-[1.2rem] bg-surface-low px-4 py-4">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Step {index + 1}</p>
-                <p className="mt-2 text-sm leading-7 text-muted">{step}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <section className="rounded-[1.75rem] bg-[linear-gradient(180deg,rgba(255,171,243,0.18),rgba(138,35,135,0.34))] p-6 shadow-ambient">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Automation controls</p>
-        <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
-          Configure conversion, auto-forwarding, and auto-posting
-        </h3>
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <ToggleRow
-            label="Auto convert links"
-            body="Convert every marketplace or HYPD storefront URL into the creator's HYPD link before sending."
-            checked={automation.conversionEnabled}
-            onChange={(next) => setAutomation((current) => ({ ...current, conversionEnabled: next }))}
-          />
-          <ToggleRow
-            label="Auto forward approved deals"
-            body="Forward approved deals automatically into the chosen Telegram and WhatsApp flows."
-            checked={automation.autoForwardingEnabled}
-            onChange={(next) => setAutomation((current) => ({ ...current, autoForwardingEnabled: next }))}
-          />
-          <ToggleRow
-            label="Auto post scheduled deals"
-            body="Publish top deals automatically during the selected posting window."
-            checked={automation.autoPostingEnabled}
-            onChange={(next) => setAutomation((current) => ({ ...current, autoPostingEnabled: next }))}
-          />
-          <ToggleRow
-            label="Require approval before push"
-            body="Keep manual approval enabled for sponsor pushes or sensitive deal campaigns."
-            checked={automation.approvalRequired}
-            onChange={(next) => setAutomation((current) => ({ ...current, approvalRequired: next }))}
-          />
-        </div>
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <InputField
-            label="Posting window"
-            value={automation.postingWindow}
-            placeholder="10:00 AM, 2:00 PM, 8:00 PM"
-            onChange={(value) => setAutomation((current) => ({ ...current, postingWindow: value }))}
-          />
-          <InputField
-            label="Fallback channel / list"
-            value={automation.fallbackChannel}
-            placeholder="VIP Telegram or WhatsApp backup list"
-            onChange={(value) => setAutomation((current) => ({ ...current, fallbackChannel: value }))}
-          />
-        </div>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm text-text/85">
-              {savedAt ? `Saved in this browser at ${savedAt}` : "No setup details saved yet."}
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram automation</p>
+            <h2 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
+              Add up to {MAX_AUTOMATIONS} Telegram automations
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
+              Each Telegram automation can convert links, auto forward deals, auto post by schedule, and choose
+              whether posts go with image, without image, or both.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={addTelegramAutomation}
+            disabled={telegramAutomations.length >= MAX_AUTOMATIONS}
+            className="rounded-xl bg-cta-gradient px-5 py-3 font-headline text-sm font-bold text-white shadow-glow disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Add Telegram Automation
+          </button>
+        </div>
+        <div className="mt-6 space-y-5">
+          {telegramAutomations.map((automation, index) => (
+            <TelegramAutomationCard
+              key={automation.id}
+              automation={automation}
+              index={index}
+              onChange={(next) =>
+                setTelegramAutomations((current) =>
+                  current.map((item) => (item.id === automation.id ? next : item))
+                )
+              }
+              onRemove={() =>
+                setTelegramAutomations((current) =>
+                  current.length === 1 ? current : current.filter((item) => item.id !== automation.id)
+                )
+              }
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">WhatsApp automation</p>
+            <h2 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
+              Add up to {MAX_AUTOMATIONS} WhatsApp automations
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
+              Each WhatsApp automation can convert links, auto forward approved deals, auto post on schedule,
+              and choose whether messages go with image, without image, or both.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={addWhatsAppAutomation}
+            disabled={whatsAppAutomations.length >= MAX_AUTOMATIONS}
+            className="rounded-xl bg-cta-gradient px-5 py-3 font-headline text-sm font-bold text-white shadow-glow disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Add WhatsApp Automation
+          </button>
+        </div>
+        <div className="mt-6 space-y-5">
+          {whatsAppAutomations.map((automation, index) => (
+            <WhatsAppAutomationCard
+              key={automation.id}
+              automation={automation}
+              index={index}
+              onChange={(next) =>
+                setWhatsAppAutomations((current) =>
+                  current.map((item) => (item.id === automation.id ? next : item))
+                )
+              }
+              onRemove={() =>
+                setWhatsAppAutomations((current) =>
+                  current.length === 1 ? current : current.filter((item) => item.id !== automation.id)
+                )
+              }
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[1.75rem] bg-[linear-gradient(180deg,rgba(255,171,243,0.18),rgba(138,35,135,0.34))] p-6 shadow-ambient">
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Save automation setup</p>
+        <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
+          Keep these automations ready for live execution
+        </h3>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-text/85">
+          These settings prepare the product for creator-specific automation. The next backend layer will execute
+          link conversion, auto forwarding, and auto posting from these saved configurations.
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text/85">
+            {savedAt ? `Saved at ${savedAt}` : "Save once after editing your automations."}
+          </p>
           <button
             type="button"
             onClick={saveDraft}
             className="rounded-xl bg-white/15 px-5 py-3 font-headline text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
           >
-            Save connect details
+            Save automation setup
           </button>
         </div>
       </section>
 
-      <StorageNotice />
+      <StorageNotice savedAt={savedAt} />
     </div>
   );
 }

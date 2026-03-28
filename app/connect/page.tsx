@@ -9,7 +9,7 @@ export default function ConnectPage() {
         <SectionHeading
           eyebrow="Distribution"
           title="Bots & Automation"
-          description="Connect Telegram and WhatsApp flows, then route ranked daily deals through your creator distribution engine."
+          description="Set up up to five Telegram and five WhatsApp automations with HYPD link conversion, auto forwarding, auto posting, and image or no-image posting modes."
         />
         <ConnectGrid />
       </div>

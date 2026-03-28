@@ -4,11 +4,11 @@ const items = [
   { key: "dashboard", label: "Dashboard" },
   { key: "topDealsQueue", label: "Top Deals Queue" },
   { key: "manualPushes", label: "Manual Pushes" },
-  { key: "telegramFlow", label: "Telegram Flow" },
-  { key: "whatsAppFlow", label: "WhatsApp Flow" },
+  { key: "telegramFlow", label: "Telegram Automation" },
+  { key: "whatsAppFlow", label: "WhatsApp Automation" },
   { key: "filters", label: "Filters" },
   { key: "botSettings", label: "Bot Settings" },
-  { key: "socialAccounts", label: "Social Accounts" }
+  { key: "socialAccounts", label: "Automation Summary" }
 ];
 
 export function DashboardSidePanel({

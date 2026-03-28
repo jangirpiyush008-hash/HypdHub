@@ -21,7 +21,7 @@ function getExternalHref(url: string) {
   }
 }
 
-export function DealsBrowser() {
+export function DealsBrowser({ refreshKey = 0 }: { refreshKey?: number }) {
   const [deals, setDeals] = useState<InternetDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeMarketplace, setActiveMarketplace] = useState("All");
@@ -41,7 +41,7 @@ export function DealsBrowser() {
       setDeals([]);
       setLoading(false);
     });
-  }, []);
+  }, [refreshKey]);
 
   const marketplaces = useMemo(
     () => ["All", ...Array.from(new Set(deals.map((deal) => deal.marketplace)))],

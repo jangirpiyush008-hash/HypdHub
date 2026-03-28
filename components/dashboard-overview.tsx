@@ -9,6 +9,12 @@ import { DashboardPipeline } from "@/components/dashboard-pipeline";
 import { DashboardSidePanel } from "@/components/dashboard-side-panel";
 import { SimpleBarChart } from "@/components/simple-bar-chart";
 import { StoreMix } from "@/components/store-mix";
+import {
+  TELEGRAM_AUTOMATIONS_KEY,
+  TelegramAutomation,
+  WHATSAPP_AUTOMATIONS_KEY,
+  WhatsAppAutomation
+} from "@/lib/automation-config";
 import { InternetDeal } from "@/lib/types";
 
 type DealsApiResponse = {
@@ -59,6 +65,11 @@ type DashboardData = {
   ranking: RankingApiResponse | null;
 };
 
+type AutomationData = {
+  telegram: TelegramAutomation[];
+  whatsApp: WhatsAppAutomation[];
+};
+
 type SectionKey =
   | "dashboard"
   | "topDealsQueue"
@@ -104,8 +115,10 @@ function formatTimestamp(value: string | null) {
   });
 }
 
-function OverviewPanel({ data }: { data: DashboardData }) {
+function OverviewPanel({ data, automations }: { data: DashboardData; automations: AutomationData }) {
   const { creator } = useCreatorAuth();
+  const totalAutomations = automations.telegram.length + automations.whatsApp.length;
+  const activeAutomations = [...automations.telegram, ...automations.whatsApp].filter((item) => item.enabled).length;
 
   return (
     <div className="space-y-6">
@@ -139,15 +152,15 @@ function OverviewPanel({ data }: { data: DashboardData }) {
             </p>
           </article>
           <article className="rounded-[1.35rem] bg-surface-card p-5 shadow-ambient">
-            <p className="text-sm text-muted">Live queue items</p>
+            <p className="text-sm text-muted">Connected automations</p>
             <p className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.05em] text-text">
-              {Object.values(data.deals.topDealsByMarketplace).flat().length}
+              {totalAutomations}
             </p>
           </article>
           <article className="rounded-[1.35rem] bg-surface-card p-5 shadow-ambient">
-            <p className="text-sm text-muted">Refresh status</p>
+            <p className="text-sm text-muted">Active automations</p>
             <p className="mt-3 font-headline text-2xl font-extrabold tracking-[-0.05em] text-text">
-              {data.deals.refresh.lastStatus}
+              {activeAutomations}
             </p>
           </article>
           <article className="rounded-[1.35rem] bg-surface-card p-5 shadow-ambient">
@@ -186,9 +199,7 @@ function TopDealsQueuePanel({ data }: { data: DashboardData }) {
             <article key={deal.id} className="rounded-[1.35rem] bg-surface-low p-5">
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Priority #{index + 1}</p>
               <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{deal.title}</h3>
-              <p className="mt-2 text-sm text-muted">
-                {deal.marketplace} • {deal.channelsCount} channels • score {deal.score}
-              </p>
+              <p className="mt-2 text-sm text-muted">{deal.marketplace} • score {deal.score}</p>
             </article>
           ))}
         </div>
@@ -220,9 +231,7 @@ function ManualPushesPanel({ data }: { data: DashboardData }) {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="font-headline text-lg font-bold tracking-[-0.03em] text-text">{deal.title}</h3>
-                    <p className="mt-2 text-sm text-muted">
-                      {deal.marketplace} • {deal.channelsCount} channels • validation {deal.validationStatus ?? "unverified"}
-                    </p>
+                    <p className="mt-2 text-sm text-muted">{deal.marketplace} • validation {deal.validationStatus ?? "unverified"}</p>
                   </div>
                   <p className="font-headline text-xl font-extrabold tracking-[-0.04em] text-text">
                     {deal.currentPrice ? `₹${deal.currentPrice.toLocaleString("en-IN")}` : "N/A"}
@@ -237,81 +246,112 @@ function ManualPushesPanel({ data }: { data: DashboardData }) {
   );
 }
 
-function TelegramFlowPanel({ data }: { data: DashboardData }) {
-  const telegram = data.ranking?.integrations.telegram;
+function TelegramFlowPanel({ automations }: { automations: AutomationData }) {
+  const telegram = automations.telegram;
 
   return (
     <SectionShell
       eyebrow="Telegram"
-      title="Telegram Flow"
-      description="Track the content path from ranked deal queue to approved caption to posted Telegram update."
+      title="Telegram Automation"
+      description="Manage creator-side Telegram automations for link conversion, forwarding, posting schedule, and image mode."
     >
-      <div className="rounded-[1.5rem] bg-surface-low p-6">
-        <SimpleBarChart />
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {[
-          `Readable channels ${telegram?.accessibleNow ?? 0}`,
-          `Blocked channels ${telegram?.blockedPendingAccess ?? 0}`,
-          `Addlists pending ${telegram?.addlistsPendingExpansion ?? 0}`
-        ].map((step, index) => (
-          <article key={step} className="rounded-[1.3rem] bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Step {index + 1}</p>
-            <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{step}</h3>
-            <p className="mt-3 text-sm leading-7 text-muted">
-              {index === 0
-                ? "These channels are currently available for live Telegram discovery."
-                : index === 1
-                  ? "These sources still need account access before they can contribute deal signals."
-                  : "These Telegram folders still need channel expansion into direct sources."}
-            </p>
-          </article>
-        ))}
-      </div>
-      {telegram?.accessibleChannels?.length ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          {telegram.accessibleChannels.slice(0, 6).map((channel) => (
-            <div key={channel.id} className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
-              {channel.title ?? channel.handle ?? `Channel ${channel.id}`}
-            </div>
+      {telegram.length === 0 ? (
+        <div className="rounded-[1.35rem] bg-surface-low p-5 text-sm text-muted">
+          No Telegram automations configured yet. Add them from the Connect page.
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {telegram.map((automation) => (
+            <article key={automation.id} className="rounded-[1.35rem] bg-surface-low p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
+                    {automation.enabled ? "Enabled" : "Paused"}
+                  </p>
+                  <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">
+                    {automation.name || "Unnamed Telegram automation"}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted">
+                    {automation.channelUsername || automation.channelId || "No destination added yet"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-card px-3 py-2 text-xs font-bold uppercase tracking-[0.24em] text-text">
+                  {automation.postFormat.replace("_", " ")}
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Link convert: {automation.linkConversionEnabled ? "On" : "Off"}
+                </div>
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Auto forward: {automation.autoForwardEnabled ? "On" : "Off"}
+                </div>
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Auto posting: {automation.autoPostingEnabled ? "On" : "Off"}
+                </div>
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Window: {automation.postingWindow || "Not set"}
+                </div>
+              </div>
+            </article>
           ))}
         </div>
-      ) : null}
+      )}
     </SectionShell>
   );
 }
 
-function WhatsAppFlowPanel({ data }: { data: DashboardData }) {
+function WhatsAppFlowPanel({ automations }: { automations: AutomationData }) {
+  const whatsApp = automations.whatsApp;
+
   return (
     <SectionShell
       eyebrow="WhatsApp"
-      title="WhatsApp Flow"
-      description="Review how broadcast-ready deals are selected, formatted, and distributed through WhatsApp lists."
+      title="WhatsApp Automation"
+      description="Manage creator-side WhatsApp automations for link conversion, forwarding, posting schedule, and image mode."
     >
-      <div className="grid gap-4 md:grid-cols-3">
-        {[
-          `${data.deals?.validatedDealsCount ?? 0} validated deals`,
-          `${data.deals?.telegramDealsCount ?? 0} Telegram-sourced deals`,
-          data.deals?.refresh.lastStatus ?? "Refresh pending"
-        ].map((step, index) => (
-          <article key={step} className="rounded-[1.3rem] bg-surface-low p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Phase {index + 1}</p>
-            <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{step}</h3>
-            <p className="mt-3 text-sm leading-7 text-muted">
-              {index === 0
-                ? "These are the strongest candidates for short-form broadcast pushes once delivery is connected."
-                : index === 1
-                  ? "These are the raw discovery inputs currently feeding the overall marketplace queue."
-                  : "This is the current pipeline refresh state that downstream delivery will depend on."}
-            </p>
-          </article>
-        ))}
-      </div>
-
-      <div className="rounded-[1.3rem] bg-surface-low px-5 py-5">
-        <p className="text-sm text-muted">Status</p>
-        <p className="mt-2 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">Awaiting live WhatsApp delivery integration</p>
-      </div>
+      {whatsApp.length === 0 ? (
+        <div className="rounded-[1.35rem] bg-surface-low p-5 text-sm text-muted">
+          No WhatsApp automations configured yet. Add them from the Connect page.
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {whatsApp.map((automation) => (
+            <article key={automation.id} className="rounded-[1.35rem] bg-surface-low p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
+                    {automation.enabled ? "Enabled" : "Paused"}
+                  </p>
+                  <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">
+                    {automation.name || "Unnamed WhatsApp automation"}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted">
+                    {automation.businessNumber || automation.businessName || "No destination added yet"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-card px-3 py-2 text-xs font-bold uppercase tracking-[0.24em] text-text">
+                  {automation.postFormat.replace("_", " ")}
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Link convert: {automation.linkConversionEnabled ? "On" : "Off"}
+                </div>
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Auto forward: {automation.autoForwardEnabled ? "On" : "Off"}
+                </div>
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Auto posting: {automation.autoPostingEnabled ? "On" : "Off"}
+                </div>
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Window: {automation.postingWindow || "Not set"}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </SectionShell>
   );
 }
@@ -350,8 +390,16 @@ function FiltersPanel({ data }: { data: DashboardData }) {
   );
 }
 
-function BotSettingsPanel({ data }: { data: DashboardData }) {
-  const priorities = data.ranking?.integrations.marketplaces.rankingPriority ?? [];
+function BotSettingsPanel({ data, automations }: { data: DashboardData; automations: AutomationData }) {
+  const totalWithImages = [...automations.telegram, ...automations.whatsApp].filter(
+    (item) => item.postFormat === "with_image" || item.postFormat === "both"
+  ).length;
+  const totalAutoPosting = [...automations.telegram, ...automations.whatsApp].filter(
+    (item) => item.autoPostingEnabled
+  ).length;
+  const totalLinkConvert = [...automations.telegram, ...automations.whatsApp].filter(
+    (item) => item.linkConversionEnabled
+  ).length;
 
   return (
     <SectionShell
@@ -369,46 +417,62 @@ function BotSettingsPanel({ data }: { data: DashboardData }) {
           <p className="mt-3 text-sm leading-7 text-muted">{data.ranking?.refresh.lastStatus ?? "Pending"}</p>
         </article>
         <article className="rounded-[1.35rem] bg-surface-low p-5">
-          <h3 className="font-headline text-xl font-bold tracking-[-0.03em] text-text">HYPD integration</h3>
-          <p className="mt-3 text-sm leading-7 text-muted">{data.ranking?.integrations.hypd.status ?? "Pending"}</p>
+          <h3 className="font-headline text-xl font-bold tracking-[-0.03em] text-text">HYPD link convert</h3>
+          <p className="mt-3 text-sm leading-7 text-muted">{totalLinkConvert} automations have forced HYPD conversion enabled.</p>
         </article>
       </div>
-      {priorities.length ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {priorities.map((priority) => (
-            <div key={priority} className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
-              {priority}
-            </div>
-          ))}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
+          {totalAutoPosting} automations have auto posting enabled
         </div>
-      ) : null}
+        <div className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
+          {totalWithImages} automations can post with image
+        </div>
+        <div className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
+          {data.ranking?.integrations.hypd.status ?? "pending"} HYPD API status
+        </div>
+      </div>
     </SectionShell>
   );
 }
 
-function SocialAccountsPanel({ data }: { data: DashboardData }) {
-  const telegram = data.ranking?.integrations.telegram;
+function SocialAccountsPanel({ automations }: { automations: AutomationData }) {
+  const allAutomations = [...automations.telegram, ...automations.whatsApp];
+  const enabledCount = allAutomations.filter((item) => item.enabled).length;
 
   return (
     <SectionShell
-      eyebrow="Accounts"
-      title="Social Accounts"
-      description="See which channel destinations are connected and where more setup or review is still required."
+      eyebrow="Automation"
+      title="Connected Automations"
+      description="See which Telegram and WhatsApp automations are configured for this creator."
     >
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <article className="rounded-[1.35rem] bg-surface-low p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram readable</p>
-          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{telegram?.accessibleNow ?? 0}</h3>
-          <p className="mt-2 text-sm text-muted">of {telegram?.totalChannels ?? 0} tracked sources</p>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram automations</p>
+          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{automations.telegram.length}</h3>
         </article>
         <article className="rounded-[1.35rem] bg-surface-low p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Pending access</p>
-          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">
-            {(telegram?.blockedPendingAccess ?? 0) + (telegram?.addlistsPendingExpansion ?? 0)}
-          </h3>
-          <p className="mt-2 text-sm text-muted">blocked or addlist sources</p>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">WhatsApp automations</p>
+          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{automations.whatsApp.length}</h3>
+        </article>
+        <article className="rounded-[1.35rem] bg-surface-low p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Enabled automations</p>
+          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{enabledCount}</h3>
         </article>
       </div>
+      {allAutomations.length > 0 ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {allAutomations.map((automation) => (
+            <div key={automation.id} className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
+              {automation.name || "Unnamed automation"} • {automation.enabled ? "Enabled" : "Paused"}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-[1.35rem] bg-surface-low p-5 text-sm text-muted">
+          No creator automations configured yet.
+        </div>
+      )}
     </SectionShell>
   );
 }
@@ -416,6 +480,7 @@ function SocialAccountsPanel({ data }: { data: DashboardData }) {
 export function DashboardOverview() {
   const [activeKey, setActiveKey] = useState<SectionKey>("dashboard");
   const [data, setData] = useState<DashboardData>({ deals: null, ranking: null });
+  const [automations, setAutomations] = useState<AutomationData>({ telegram: [], whatsApp: [] });
 
   useEffect(() => {
     async function load() {
@@ -435,19 +500,29 @@ export function DashboardOverview() {
     load().catch(() => setData({ deals: null, ranking: null }));
   }, []);
 
+  useEffect(() => {
+    const telegramStored = window.localStorage.getItem(TELEGRAM_AUTOMATIONS_KEY);
+    const whatsAppStored = window.localStorage.getItem(WHATSAPP_AUTOMATIONS_KEY);
+
+    setAutomations({
+      telegram: telegramStored ? (JSON.parse(telegramStored) as TelegramAutomation[]) : [],
+      whatsApp: whatsAppStored ? (JSON.parse(whatsAppStored) as WhatsAppAutomation[]) : []
+    });
+  }, []);
+
   return (
     <div className="grid gap-6 xl:grid-cols-[0.28fr_0.72fr]">
       <DashboardSidePanel activeKey={activeKey} onSelect={(key) => setActiveKey(key as SectionKey)} />
 
       <div className="space-y-6">
-        {activeKey === "dashboard" ? <OverviewPanel data={data} /> : null}
+        {activeKey === "dashboard" ? <OverviewPanel data={data} automations={automations} /> : null}
         {activeKey === "topDealsQueue" ? <TopDealsQueuePanel data={data} /> : null}
         {activeKey === "manualPushes" ? <ManualPushesPanel data={data} /> : null}
-        {activeKey === "telegramFlow" ? <TelegramFlowPanel data={data} /> : null}
-        {activeKey === "whatsAppFlow" ? <WhatsAppFlowPanel data={data} /> : null}
+        {activeKey === "telegramFlow" ? <TelegramFlowPanel automations={automations} /> : null}
+        {activeKey === "whatsAppFlow" ? <WhatsAppFlowPanel automations={automations} /> : null}
         {activeKey === "filters" ? <FiltersPanel data={data} /> : null}
-        {activeKey === "botSettings" ? <BotSettingsPanel data={data} /> : null}
-        {activeKey === "socialAccounts" ? <SocialAccountsPanel data={data} /> : null}
+        {activeKey === "botSettings" ? <BotSettingsPanel data={data} automations={automations} /> : null}
+        {activeKey === "socialAccounts" ? <SocialAccountsPanel automations={automations} /> : null}
       </div>
     </div>
   );

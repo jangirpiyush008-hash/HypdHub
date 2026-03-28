@@ -16,7 +16,7 @@ type DealsApiResponse = {
   topDealsByMarketplace: Record<string, InternetDeal[]>;
 };
 
-export function MarketplaceTopDeals() {
+export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number }) {
   const [data, setData] = useState<DealsApiResponse | null>(null);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export function MarketplaceTopDeals() {
     }
 
     load().catch(() => setData(null));
-  }, []);
+  }, [refreshKey]);
 
   if (!data) {
     return (
