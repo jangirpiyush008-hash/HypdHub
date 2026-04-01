@@ -4,6 +4,7 @@ export const CREATOR_SESSION_KEY = "hypd_creator_session";
 export const HYPD_UPSTREAM_SESSION_COOKIE = "hypd_upstream_session";
 export const ENTITY_URL = "https://entity.hypd.store";
 export const CATALOG_URL = "https://catalog2.hypd.store";
+export const ORDER_URL = "https://order2.hypd.store";
 
 export function normalizeMobileNumber(value: string) {
   const digits = value.replace(/\D/g, "");

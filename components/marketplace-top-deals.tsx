@@ -14,6 +14,33 @@ type DealsApiResponse = {
     trackedSnapshots: number;
   };
   topDealsByMarketplace: Record<string, InternetDeal[]>;
+  hypd: {
+    status: string;
+    hotSellingProducts: Array<{
+      id: string;
+      title: string;
+      brandName: string;
+      imageUrl: string | null;
+      orderCount: number;
+      productUrl: string | null;
+    }>;
+    hotSellingBrands: Array<{
+      id: string;
+      name: string;
+      imageUrl: string | null;
+      orderCount: number;
+    }>;
+    marketplaceCommissions: Array<{
+      label: string;
+      commission: string;
+    }>;
+    stats: {
+      sales: string | null;
+      orders: string | null;
+      withdrawable: string | null;
+      pending: string | null;
+    };
+  };
 };
 
 export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number }) {
@@ -58,13 +85,71 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
       <div className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Marketplace Top 10</p>
         <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
-          Best public deals refreshed every {data.refreshWindowHours} hours
+          Live deals refreshed every {data.refreshWindowHours} hours
         </h3>
-        <p className="mt-3 text-sm leading-7 text-muted">
-          These sections surface the strongest available deals and organize them into clean marketplace boards
-          for fast creator conversion.
-        </p>
       </div>
+
+      {data.hypd.status === "live" ? (
+        <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">HYPD Trending</p>
+                <h4 className="mt-2 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
+                  Hot-selling on HYPD
+                </h4>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {data.hypd.hotSellingProducts.slice(0, 6).map((product) => (
+                <a
+                  key={product.id}
+                  href={product.productUrl ?? "#"}
+                  target={product.productUrl ? "_blank" : undefined}
+                  rel={product.productUrl ? "noreferrer" : undefined}
+                  className="rounded-[1.2rem] bg-surface-low px-4 py-4"
+                >
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
+                    {product.orderCount} orders
+                  </p>
+                  <h5 className="mt-2 font-headline text-lg font-bold tracking-[-0.03em] text-text">
+                    {product.title}
+                  </h5>
+                  <p className="mt-1 text-sm text-muted">{product.brandName}</p>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">HYPD Commission</p>
+            <h4 className="mt-2 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
+              Live commission map
+            </h4>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {data.hypd.marketplaceCommissions.slice(0, 10).map((item) => (
+                <div key={`${item.label}-${item.commission}`} className="rounded-full bg-surface-low px-4 py-2 text-sm text-text">
+                  {item.label}: {item.commission}
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[1.2rem] bg-surface-low px-4 py-4">
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted">Sales</p>
+                <p className="mt-2 font-headline text-xl font-bold tracking-[-0.03em] text-text">
+                  {data.hypd.stats.sales ?? "N/A"}
+                </p>
+              </div>
+              <div className="rounded-[1.2rem] bg-surface-low px-4 py-4">
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted">Orders</p>
+                <p className="mt-2 font-headline text-xl font-bold tracking-[-0.03em] text-text">
+                  {data.hypd.stats.orders ?? "N/A"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {Object.entries(data.topDealsByMarketplace).map(([marketplace, deals]) => (
         <section key={marketplace} className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchHypdProducts } from "@/lib/integrations/hypd";
 import { fetchTelegramDeals } from "@/lib/integrations/telegram";
 import { getDealHistorySummary } from "@/lib/runtime/deal-history";
 import { ensureAutomaticRefresh, getRefreshStatus } from "@/lib/runtime/refresh-state";
@@ -27,10 +28,11 @@ export async function GET(request: NextRequest) {
   const minPrice = Number(searchParams.get("minPrice") ?? "0");
   const maxPrice = Number(searchParams.get("maxPrice") ?? "999999");
 
-  const [telegram, history, refresh] = await Promise.all([
+  const [telegram, history, refresh, hypd] = await Promise.all([
     fetchTelegramDeals(),
     getDealHistorySummary(),
-    getRefreshStatus()
+    getRefreshStatus(),
+    fetchHypdProducts()
   ]);
 
   const filteredDeals = telegram.deals.filter((deal) => {
@@ -51,6 +53,7 @@ export async function GET(request: NextRequest) {
     telegramDealsCount: telegram.deals.length,
     validatedDealsCount: telegram.deals.filter((deal) => deal.validationStatus === "validated").length,
     history,
-    refresh
+    refresh,
+    hypd
   });
 }

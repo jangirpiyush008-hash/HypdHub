@@ -1,19 +1,342 @@
-export async function fetchHypdProducts() {
+import { CATALOG_URL, ENTITY_URL, ORDER_URL } from "@/lib/auth";
+import { fetchCurrentHypdCreator, getStoredHypdCookies, UpstreamCookie } from "@/lib/hypd-server";
+
+type HypdProduct = {
+  id: string;
+  title: string;
+  brandName: string;
+  imageUrl: string | null;
+  orderCount: number;
+  productUrl: string | null;
+};
+
+type HypdBrand = {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  orderCount: number;
+};
+
+type HypdCommission = {
+  label: string;
+  commission: string;
+};
+
+type HypdStats = {
+  sales: string | null;
+  orders: string | null;
+  withdrawable: string | null;
+  pending: string | null;
+};
+
+function buildCookieHeader(cookies: UpstreamCookie[]) {
+  return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+}
+
+async function hypdFetch(url: string, init: RequestInit, upstreamCookies: UpstreamCookie[]) {
+  const headers = new Headers(init.headers);
+
+  if (upstreamCookies.length > 0) {
+    headers.set("Cookie", buildCookieHeader(upstreamCookies));
+  }
+
+  if (!headers.has("Content-Type") && init.body) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  return fetch(url, {
+    ...init,
+    headers,
+    cache: "no-store"
+  });
+}
+
+function asArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function pickString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function pickNumber(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value.replace(/,/g, ""));
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return 0;
+}
+
+function pickImage(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === "string" && item.trim()) {
+        return item.trim();
+      }
+
+      if (item && typeof item === "object") {
+        const object = item as Record<string, unknown>;
+        const candidate = pickString(object.url, object.src, object.image);
+        if (candidate) {
+          return candidate;
+        }
+      }
+    }
+  }
+
+  if (value && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    return pickString(object.url, object.src, object.image) || null;
+  }
+
+  return null;
+}
+
+function normalizeHotSellingProducts(
+  creatorUsername: string,
+  productsPayload: unknown,
+  ordersPayload: unknown
+) {
+  const orderMap = new Map<string, number>();
+
+  for (const item of asArray(ordersPayload)) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const id = pickString(record.id);
+    if (!id) continue;
+    orderMap.set(id, pickNumber(record.number_of_orders));
+  }
+
+  return asArray(productsPayload)
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const product = item as Record<string, unknown>;
+      const id = pickString(product.id, product._id);
+      if (!id) return null;
+
+      return {
+        id,
+        title: pickString(product.name, product.title, product.product_name) || "HYPD Product",
+        brandName: pickString(
+          product.brand_name,
+          (product.brand as Record<string, unknown> | undefined)?.name
+        ) || "Brand",
+        imageUrl: pickImage(product.images) ?? pickImage(product.image) ?? pickImage(product.defaultImage),
+        orderCount: orderMap.get(id) ?? 0,
+        productUrl: creatorUsername ? `https://www.hypd.store/${creatorUsername}/product/${id}` : null
+      } satisfies HypdProduct;
+    })
+    .filter((item): item is HypdProduct => Boolean(item))
+    .sort((left, right) => right.orderCount - left.orderCount)
+    .slice(0, 10);
+}
+
+function normalizeHotSellingBrands(brandsPayload: unknown, ordersPayload: unknown) {
+  const orderMap = new Map<string, number>();
+
+  for (const item of asArray(ordersPayload)) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const id = pickString(record.brand_id, record.id);
+    if (!id) continue;
+    orderMap.set(id, pickNumber(record.number_of_orders));
+  }
+
+  return asArray(brandsPayload)
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const brand = item as Record<string, unknown>;
+      const id = pickString(brand.id, brand._id);
+      if (!id) return null;
+
+      return {
+        id,
+        name: pickString(brand.name, brand.title) || "Brand",
+        imageUrl: pickImage(brand.image) ?? pickImage(brand.logo) ?? pickImage(brand.images),
+        orderCount: orderMap.get(id) ?? 0
+      } satisfies HypdBrand;
+    })
+    .filter((item): item is HypdBrand => Boolean(item))
+    .sort((left, right) => right.orderCount - left.orderCount)
+    .slice(0, 10);
+}
+
+function normalizeCommissionRules(payload: unknown) {
+  const rules = asArray(payload)
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const rule = item as Record<string, unknown>;
+      const label =
+        pickString(
+          rule.marketplace,
+          rule.brand_name,
+          rule.name,
+          (rule.brand as Record<string, unknown> | undefined)?.name
+        ) || "Commission";
+      const commission =
+        pickString(
+          rule.commission_rate_text,
+          rule.commission_text,
+          rule.display_commission,
+          rule.commission
+        ) || `${pickNumber(rule.commission_rate, rule.commission_percentage, rule.value)}%`;
+
+      if (!commission || commission === "0%") {
+        return null;
+      }
+
+      return {
+        label,
+        commission
+      } satisfies HypdCommission;
+    })
+    .filter((item): item is HypdCommission => Boolean(item));
+
+  const deduped = new Map<string, HypdCommission>();
+  for (const rule of rules) {
+    if (!deduped.has(rule.label)) {
+      deduped.set(rule.label, rule);
+    }
+  }
+
+  return Array.from(deduped.values()).slice(0, 12);
+}
+
+function normalizeStats(payload: unknown): HypdStats {
+  if (!payload || typeof payload !== "object") {
+    return {
+      sales: null,
+      orders: null,
+      withdrawable: null,
+      pending: null
+    };
+  }
+
+  const stats = payload as Record<string, unknown>;
+
   return {
-    status: "pending_real_api",
+    sales: pickString(stats.total_sales, stats.sales, stats.sales_count) || null,
+    orders: pickString(stats.orders, stats.total_orders, stats.order_count) || null,
+    withdrawable: pickString(stats.withdrawable, stats.withdrawable_commission, stats.available_commission) || null,
+    pending: pickString(stats.pending, stats.pending_commission) || null
+  };
+}
+
+export async function fetchHypdProducts() {
+  const upstreamCookies = await getStoredHypdCookies();
+  const creator = await fetchCurrentHypdCreator(upstreamCookies);
+
+  if (!creator || upstreamCookies.length === 0) {
+    return {
+      status: "login_required",
+      notes: ["Login with HYPD to load live HYPD trending products and commission data."],
+      hotSellingProducts: [] as HypdProduct[],
+      hotSellingBrands: [] as HypdBrand[],
+      marketplaceCommissions: [] as HypdCommission[],
+      stats: {
+        sales: null,
+        orders: null,
+        withdrawable: null,
+        pending: null
+      } satisfies HypdStats,
+      lastSyncedAt: null as string | null
+    };
+  }
+
+  const [ordersResponse, brandsResponse, commissionResponse, statsResponse] = await Promise.all([
+    hypdFetch(`${ORDER_URL}/api/hot-selling-catalogs`, { method: "GET" }, upstreamCookies),
+    hypdFetch(`${ORDER_URL}/api/hot-selling-brands`, { method: "GET" }, upstreamCookies),
+    hypdFetch(`${ENTITY_URL}/api/app/commission-rule`, { method: "GET" }, upstreamCookies),
+    hypdFetch(`${ENTITY_URL}/api/app/stats`, { method: "GET" }, upstreamCookies)
+  ]);
+
+  const hotSellingOrdersPayload = (await ordersResponse.json().catch(() => null))?.payload ?? [];
+  const hotSellingBrandsPayload = (await brandsResponse.json().catch(() => null))?.payload ?? [];
+  const commissionPayload = (await commissionResponse.json().catch(() => null))?.payload ?? [];
+  const statsPayload = (await statsResponse.json().catch(() => null))?.payload ?? null;
+
+  const catalogIds = asArray(hotSellingOrdersPayload)
+    .map((item) => (item && typeof item === "object" ? pickString((item as Record<string, unknown>).id) : ""))
+    .filter(Boolean);
+
+  const productInfoPayload =
+    catalogIds.length > 0
+      ? (
+          await hypdFetch(
+            `${CATALOG_URL}/api/v2/app/catalog/basic?${catalogIds
+              .map((id) => `id=${encodeURIComponent(id)}`)
+              .join("&")}`,
+            { method: "GET" },
+            upstreamCookies
+          ).then((response) => response.json().catch(() => null))
+        )?.payload ?? []
+      : [];
+
+  const brandIds = asArray(hotSellingBrandsPayload)
+    .map((item) =>
+      item && typeof item === "object" ? pickString((item as Record<string, unknown>).brand_id, (item as Record<string, unknown>).id) : ""
+    )
+    .filter(Boolean);
+
+  const brandInfoPayload =
+    brandIds.length > 0
+      ? (
+          await hypdFetch(
+            `${ENTITY_URL}/api/app/brand/basic`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                ids: brandIds
+              })
+            },
+            upstreamCookies
+          ).then((response) => response.json().catch(() => null))
+        )?.payload ?? []
+      : [];
+
+  return {
+    status: "live",
     notes: [
-      "Awaiting HYPD product API credentials.",
-      "Will ingest product, pricing, sold count, clicks, and conversion metadata."
-    ]
+      "Live HYPD hot-selling products synced from the creator app APIs.",
+      "Marketplace commissions are pulled from HYPD commission rules."
+    ],
+    hotSellingProducts: normalizeHotSellingProducts(creator.hypdUsername, productInfoPayload, hotSellingOrdersPayload),
+    hotSellingBrands: normalizeHotSellingBrands(brandInfoPayload, hotSellingBrandsPayload),
+    marketplaceCommissions: normalizeCommissionRules(commissionPayload),
+    stats: normalizeStats(statsPayload),
+    lastSyncedAt: new Date().toISOString()
   };
 }
 
 export async function fetchHypdUserSession() {
-  return {
-    status: "pending_real_auth",
-    notes: [
-      "Awaiting HYPD auth API / SSO flow.",
-      "Will exchange credentials for user profile and creator session."
-    ]
-  };
+  const creator = await fetchCurrentHypdCreator();
+
+  return creator
+    ? {
+        status: "authenticated",
+        creator
+      }
+    : {
+        status: "unauthenticated",
+        creator: null
+      };
 }
