@@ -12,7 +12,10 @@ function pickCandidateDeal(automation: TelegramAutomation, deals: InternetDeal[]
 
   const filtered = deals.filter((deal) => {
     if (automation.sourceMode === "official_hypd") {
-      return deal.channelNames.some((name) => name.toLowerCase().includes("official hypd deals"));
+      return deal.channelNames.some((name) => {
+        const lowered = name.toLowerCase();
+        return lowered.includes("official hypd deals") || lowered.includes("hypdeals");
+      });
     }
 
     return deal.channelNames.some((name) => {
@@ -21,8 +24,7 @@ function pickCandidateDeal(automation: TelegramAutomation, deals: InternetDeal[]
     });
   });
 
-  const pool = filtered.length > 0 ? filtered : deals;
-  return pool[0] ?? null;
+  return filtered[0] ?? null;
 }
 
 function renderCaption(template: string, deal: InternetDeal, link: string) {
@@ -53,16 +55,14 @@ export async function POST() {
     return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
   }
 
-  const automations = (await getTelegramAutomationsForCreator(creator.id)).filter(
-    (automation) => automation.enabled && automation.autoPostingEnabled
-  );
+  const automations = (await getTelegramAutomationsForCreator(creator.id)).filter((automation) => automation.enabled);
 
   if (automations.length === 0) {
-    return NextResponse.json({ ok: false, message: "No enabled Telegram auto-posting automation found." }, { status: 400 });
+    return NextResponse.json({ ok: false, message: "No enabled Telegram automation found." }, { status: 400 });
   }
 
   const telegram = await fetchTelegramDeals(true);
-  const rankedDeals = Object.values(telegram.topDealsByMarketplace).flat();
+  const rankedDeals = telegram.deals;
 
   if (rankedDeals.length === 0) {
     return NextResponse.json({ ok: false, message: "No live deals available to post right now." }, { status: 400 });
@@ -78,7 +78,7 @@ export async function POST() {
             automationId: automation.id,
             automationName: automation.name || "Telegram automation",
             ok: false,
-            message: "No matching live deal found."
+            message: "No matching live deal found in the selected source channel."
           };
         }
 

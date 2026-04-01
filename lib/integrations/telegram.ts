@@ -154,6 +154,45 @@ function detectMarketplaceFromUrl(rawUrl: string): SupportedMarketplace | null {
   }
 }
 
+async function resolveMarketplaceUrl(rawUrl: string) {
+  const direct = canonicalizeMarketplaceUrl(rawUrl);
+
+  if (direct) {
+    return {
+      ...direct,
+      resolvedUrl: rawUrl
+    };
+  }
+
+  try {
+    const url = new URL(rawUrl);
+
+    if (!url.hostname.includes("hypd.store")) {
+      return null;
+    }
+
+    const response = await fetch(rawUrl, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store"
+    });
+
+    const finalUrl = response.url || rawUrl;
+    const normalized = canonicalizeMarketplaceUrl(finalUrl);
+
+    if (!normalized) {
+      return null;
+    }
+
+    return {
+      ...normalized,
+      resolvedUrl: finalUrl
+    };
+  } catch {
+    return null;
+  }
+}
+
 function canonicalizeMarketplaceUrl(rawUrl: string) {
   try {
     const url = new URL(rawUrl);
@@ -328,7 +367,7 @@ async function buildTelegramDeals() {
         const postedAt = message.date ? new Date(message.date * 1000).toISOString() : new Date().toISOString();
 
         for (const rawUrl of urls) {
-          const normalized = canonicalizeMarketplaceUrl(rawUrl);
+          const normalized = await resolveMarketplaceUrl(rawUrl);
           if (!normalized) continue;
           if (!supportedMarketplaces.includes(normalized.marketplace)) continue;
 
@@ -341,7 +380,7 @@ async function buildTelegramDeals() {
               id: key,
               marketplace: normalized.marketplace,
               canonicalUrl: normalized.canonicalUrl,
-              originalUrl: rawUrl,
+              originalUrl: normalized.resolvedUrl,
               title: extractTitle(text, normalized.canonicalUrl),
               category: inferCategory(text),
               currentPrice: prices.currentPrice,

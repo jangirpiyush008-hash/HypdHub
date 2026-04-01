@@ -251,28 +251,42 @@ function TelegramAutomationCard({
         <SourceModePicker automation={automation} onChange={onChange} />
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <InputField
-            label="Source label"
-            value={automation.sourceChannelLabel}
-            placeholder="Official HYPD Deals Channel"
-            onChange={(value) =>
-              onChange({
-                ...automation,
-                sourceChannelLabel: automation.sourceMode === "official_hypd" ? OFFICIAL_HYPD_SOURCE_LABEL : value
-              })
-            }
-          />
-          <InputField
-            label="Source channel ID"
-            value={automation.sourceChannelId}
-            placeholder="@hypdeals or -100..."
-            onChange={(value) =>
-              onChange({
-                ...automation,
-                sourceChannelId: automation.sourceMode === "official_hypd" ? OFFICIAL_HYPD_SOURCE_CHANNEL : value
-              })
-            }
-          />
+          {automation.sourceMode === "official_hypd" ? (
+            <div className="rounded-[1.2rem] bg-surface-low px-4 py-4 lg:col-span-2">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted">Official HYPD source</p>
+              <p className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">
+                {OFFICIAL_HYPD_SOURCE_LABEL}
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                Source channel: {OFFICIAL_HYPD_SOURCE_CHANNEL} • Posting bot: {OFFICIAL_HYPD_BOT_USERNAME}
+              </p>
+            </div>
+          ) : (
+            <>
+              <InputField
+                label="Source label"
+                value={automation.sourceChannelLabel}
+                placeholder="My source channel"
+                onChange={(value) =>
+                  onChange({
+                    ...automation,
+                    sourceChannelLabel: value
+                  })
+                }
+              />
+              <InputField
+                label="Source channel ID"
+                value={automation.sourceChannelId}
+                placeholder="@your_source_channel or -100..."
+                onChange={(value) =>
+                  onChange({
+                    ...automation,
+                    sourceChannelId: value
+                  })
+                }
+              />
+            </>
+          )}
           <InputField
             label="Destination channel username"
             value={automation.destinationChannelUsername}
@@ -285,42 +299,28 @@ function TelegramAutomationCard({
             placeholder="-100..."
             onChange={(value) => onChange({ ...automation, destinationChannelId: value })}
           />
-          <InputField
-            label="Bot token"
-            value={automation.botToken}
-            placeholder="Paste BotFather token"
-            onChange={(value) => onChange({ ...automation, botToken: value })}
-          />
-          <InputField
-            label="Bot username"
-            value={automation.botUsername}
-            placeholder="@HypdConverterbot"
-            onChange={(value) => onChange({ ...automation, botUsername: value })}
-          />
-          <InputField
-            label="Admin user ID"
-            value={automation.adminUserId}
-            placeholder="Telegram admin numeric ID"
-            onChange={(value) => onChange({ ...automation, adminUserId: value })}
-          />
-          <InputField
-            label="Webhook URL"
-            value={automation.webhookUrl}
-            placeholder="https://your-domain.com/api/telegram/webhook"
-            onChange={(value) => onChange({ ...automation, webhookUrl: value })}
-          />
-          <InputField
-            label="Fallback target"
-            value={automation.fallbackTarget}
-            placeholder="Backup Telegram channel"
-            onChange={(value) => onChange({ ...automation, fallbackTarget: value })}
-          />
+          {automation.sourceMode === "custom_channel" ? (
+            <>
+              <InputField
+                label="Bot token"
+                value={automation.botToken}
+                placeholder="Paste BotFather token"
+                onChange={(value) => onChange({ ...automation, botToken: value })}
+              />
+              <InputField
+                label="Bot username"
+                value={automation.botUsername}
+                placeholder="@your_bot_username"
+                onChange={(value) => onChange({ ...automation, botUsername: value })}
+              />
+            </>
+          ) : null}
         </div>
 
         <TextAreaField
           label="Caption template"
           value={automation.captionTemplate}
-          placeholder="Deal title\nOffer line\nAlways converted HYPD link\nCTA"
+          placeholder="{title}\n{marketplace} {price}\n{link}"
           onChange={(value) => onChange({ ...automation, captionTemplate: value })}
         />
 
@@ -347,13 +347,13 @@ function TelegramAutomationCard({
           />
           <ToggleRow
             label="Auto forward"
-            body="Forward eligible deals from the chosen source channel into the destination channel automatically."
+            body="Keep sending fresh source-channel deals into the destination Telegram channel."
             checked={automation.autoForwardEnabled}
             onChange={(value) => onChange({ ...automation, autoForwardEnabled: value })}
           />
           <ToggleRow
             label="Auto posting"
-            body="Auto post on schedule to the destination channel."
+            body="Allow scheduled background posting without pressing Run now."
             checked={automation.autoPostingEnabled}
             onChange={(value) => onChange({ ...automation, autoPostingEnabled: value })}
           />
@@ -485,8 +485,8 @@ export function ConnectGrid() {
             body: "Deals refresh every 2 hours from backend sources and show real marketplace links on the site."
           },
           {
-            title: "Official or custom source",
-            body: "Creators can use the official HYPD Telegram source channel or add their own source channel."
+            title: "Simple Telegram setup",
+            body: "Pick official HYPD source or your own source, choose your destination channel, and start posting."
           },
           {
             title: "HYPD links only",
@@ -509,8 +509,7 @@ export function ConnectGrid() {
               Add up to {MAX_AUTOMATIONS} Telegram automations
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
-              Each automation can pick the official HYPD source channel or a custom source channel, then post into the creator's
-              destination channel with automatic HYPD link conversion, forwarding, and scheduled posting.
+              For most users, only three things matter: source, destination channel, and whether posting should run automatically.
             </p>
             <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-primary">
               Official HYPD bot: {officialBotConfigured ? "Configured on backend" : "Pending Railway secret"}
@@ -553,7 +552,7 @@ export function ConnectGrid() {
           Keep Telegram automation ready on the backend
         </h3>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-text/85">
-          These Telegram automations are now saved on the backend per logged-in HYPD creator, not only in the browser.
+          Save the setup first, then use Run Telegram Now to test one live post immediately.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
