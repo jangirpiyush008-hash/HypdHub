@@ -1,11 +1,11 @@
 export const MAX_AUTOMATIONS = 5;
 
 export type PostFormat = "with_image" | "without_image" | "both";
+export type TelegramSourceMode = "official_hypd" | "custom_channel";
 
 export type BaseAutomation = {
   id: string;
   name: string;
-  sourceLabel: string;
   postingWindow: string;
   captionTemplate: string;
   fallbackTarget: string;
@@ -17,10 +17,13 @@ export type BaseAutomation = {
 };
 
 export type TelegramAutomation = BaseAutomation & {
+  sourceMode: TelegramSourceMode;
+  sourceChannelLabel: string;
+  sourceChannelId: string;
   botToken: string;
   botUsername: string;
-  channelUsername: string;
-  channelId: string;
+  destinationChannelUsername: string;
+  destinationChannelId: string;
   adminUserId: string;
   webhookUrl: string;
 };
@@ -38,6 +41,7 @@ export type WhatsAppAutomation = BaseAutomation & {
 export const TELEGRAM_AUTOMATIONS_KEY = "hypd-telegram-automations";
 export const WHATSAPP_AUTOMATIONS_KEY = "hypd-whatsapp-automations";
 export const AUTOMATIONS_SAVED_AT_KEY = "hypd-automations-saved-at";
+export const OFFICIAL_HYPD_SOURCE_LABEL = "Official HYPD Deals Channel";
 
 function createId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -47,7 +51,9 @@ export function createTelegramAutomation(): TelegramAutomation {
   return {
     id: createId("tg"),
     name: "",
-    sourceLabel: "Live deals feed",
+    sourceMode: "official_hypd",
+    sourceChannelLabel: OFFICIAL_HYPD_SOURCE_LABEL,
+    sourceChannelId: "",
     postingWindow: "",
     captionTemplate: "",
     fallbackTarget: "",
@@ -58,8 +64,8 @@ export function createTelegramAutomation(): TelegramAutomation {
     enabled: true,
     botToken: "",
     botUsername: "",
-    channelUsername: "",
-    channelId: "",
+    destinationChannelUsername: "",
+    destinationChannelId: "",
     adminUserId: "",
     webhookUrl: ""
   };
@@ -69,7 +75,6 @@ export function createWhatsAppAutomation(): WhatsAppAutomation {
   return {
     id: createId("wa"),
     name: "",
-    sourceLabel: "Live deals feed",
     postingWindow: "",
     captionTemplate: "",
     fallbackTarget: "",

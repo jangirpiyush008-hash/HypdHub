@@ -10,9 +10,8 @@ import { DashboardSidePanel } from "@/components/dashboard-side-panel";
 import { SimpleBarChart } from "@/components/simple-bar-chart";
 import { StoreMix } from "@/components/store-mix";
 import {
-  TELEGRAM_AUTOMATIONS_KEY,
+  OFFICIAL_HYPD_SOURCE_LABEL,
   TelegramAutomation,
-  WHATSAPP_AUTOMATIONS_KEY,
   WhatsAppAutomation
 } from "@/lib/automation-config";
 import { InternetDeal } from "@/lib/types";
@@ -70,6 +69,11 @@ type AutomationData = {
   whatsApp: WhatsAppAutomation[];
 };
 
+type TelegramAutomationResponse = {
+  ok: boolean;
+  automations?: TelegramAutomation[];
+};
+
 type SectionKey =
   | "dashboard"
   | "topDealsQueue"
@@ -117,8 +121,8 @@ function formatTimestamp(value: string | null) {
 
 function OverviewPanel({ data, automations }: { data: DashboardData; automations: AutomationData }) {
   const { creator } = useCreatorAuth();
-  const totalAutomations = automations.telegram.length + automations.whatsApp.length;
-  const activeAutomations = [...automations.telegram, ...automations.whatsApp].filter((item) => item.enabled).length;
+  const totalAutomations = automations.telegram.length;
+  const activeAutomations = automations.telegram.filter((item) => item.enabled).length;
 
   return (
     <div className="space-y-6">
@@ -272,7 +276,7 @@ function TelegramFlowPanel({ automations }: { automations: AutomationData }) {
                     {automation.name || "Unnamed Telegram automation"}
                   </h3>
                   <p className="mt-2 text-sm text-muted">
-                    {automation.channelUsername || automation.channelId || "No destination added yet"}
+                    source: {automation.sourceMode === "official_hypd" ? OFFICIAL_HYPD_SOURCE_LABEL : automation.sourceChannelLabel || "Custom source"}
                   </p>
                 </div>
                 <div className="rounded-xl bg-surface-card px-3 py-2 text-xs font-bold uppercase tracking-[0.24em] text-text">
@@ -280,6 +284,9 @@ function TelegramFlowPanel({ automations }: { automations: AutomationData }) {
                 </div>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
+                  Destination: {automation.destinationChannelUsername || automation.destinationChannelId || "Not set"}
+                </div>
                 <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
                   Link convert: {automation.linkConversionEnabled ? "On" : "Off"}
                 </div>
@@ -301,57 +308,17 @@ function TelegramFlowPanel({ automations }: { automations: AutomationData }) {
   );
 }
 
-function WhatsAppFlowPanel({ automations }: { automations: AutomationData }) {
-  const whatsApp = automations.whatsApp;
-
+function WhatsAppFlowPanel() {
   return (
     <SectionShell
       eyebrow="WhatsApp"
       title="WhatsApp Automation"
-      description="Manage creator-side WhatsApp automations for link conversion, forwarding, posting schedule, and image mode."
+      description="WhatsApp will be added after the Telegram automation backend is finalized."
     >
-      {whatsApp.length === 0 ? (
-        <div className="rounded-[1.35rem] bg-surface-low p-5 text-sm text-muted">
-          No WhatsApp automations configured yet. Add them from the Connect page.
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {whatsApp.map((automation) => (
-            <article key={automation.id} className="rounded-[1.35rem] bg-surface-low p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
-                    {automation.enabled ? "Enabled" : "Paused"}
-                  </p>
-                  <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">
-                    {automation.name || "Unnamed WhatsApp automation"}
-                  </h3>
-                  <p className="mt-2 text-sm text-muted">
-                    {automation.businessNumber || automation.businessName || "No destination added yet"}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-surface-card px-3 py-2 text-xs font-bold uppercase tracking-[0.24em] text-text">
-                  {automation.postFormat.replace("_", " ")}
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
-                  Link convert: {automation.linkConversionEnabled ? "On" : "Off"}
-                </div>
-                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
-                  Auto forward: {automation.autoForwardEnabled ? "On" : "Off"}
-                </div>
-                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
-                  Auto posting: {automation.autoPostingEnabled ? "On" : "Off"}
-                </div>
-                <div className="rounded-xl bg-surface-card px-3 py-3 text-sm text-text">
-                  Window: {automation.postingWindow || "Not set"}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+      <div className="rounded-[1.35rem] bg-surface-low p-5 text-sm text-muted">
+        WhatsApp is intentionally held for the next phase. Once you share the business credentials and template details,
+        we can wire the same HYPD link conversion, auto forwarding, auto posting, and image-mode controls there too.
+      </div>
     </SectionShell>
   );
 }
@@ -391,13 +358,13 @@ function FiltersPanel({ data }: { data: DashboardData }) {
 }
 
 function BotSettingsPanel({ data, automations }: { data: DashboardData; automations: AutomationData }) {
-  const totalWithImages = [...automations.telegram, ...automations.whatsApp].filter(
+  const totalWithImages = automations.telegram.filter(
     (item) => item.postFormat === "with_image" || item.postFormat === "both"
   ).length;
-  const totalAutoPosting = [...automations.telegram, ...automations.whatsApp].filter(
+  const totalAutoPosting = automations.telegram.filter(
     (item) => item.autoPostingEnabled
   ).length;
-  const totalLinkConvert = [...automations.telegram, ...automations.whatsApp].filter(
+  const totalLinkConvert = automations.telegram.filter(
     (item) => item.linkConversionEnabled
   ).length;
 
@@ -437,14 +404,13 @@ function BotSettingsPanel({ data, automations }: { data: DashboardData; automati
 }
 
 function SocialAccountsPanel({ automations }: { automations: AutomationData }) {
-  const allAutomations = [...automations.telegram, ...automations.whatsApp];
-  const enabledCount = allAutomations.filter((item) => item.enabled).length;
+  const enabledCount = automations.telegram.filter((item) => item.enabled).length;
 
   return (
     <SectionShell
       eyebrow="Automation"
       title="Connected Automations"
-      description="See which Telegram and WhatsApp automations are configured for this creator."
+      description="See which Telegram automations are configured for this creator."
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <article className="rounded-[1.35rem] bg-surface-low p-5">
@@ -452,25 +418,25 @@ function SocialAccountsPanel({ automations }: { automations: AutomationData }) {
           <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{automations.telegram.length}</h3>
         </article>
         <article className="rounded-[1.35rem] bg-surface-low p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">WhatsApp automations</p>
-          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{automations.whatsApp.length}</h3>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Official source option</p>
+          <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">Enabled</h3>
         </article>
         <article className="rounded-[1.35rem] bg-surface-low p-5">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Enabled automations</p>
           <h3 className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">{enabledCount}</h3>
         </article>
       </div>
-      {allAutomations.length > 0 ? (
+      {automations.telegram.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-2">
-          {allAutomations.map((automation) => (
+          {automations.telegram.map((automation) => (
             <div key={automation.id} className="rounded-[1.2rem] bg-surface-low px-4 py-4 text-sm text-text">
-              {automation.name || "Unnamed automation"} • {automation.enabled ? "Enabled" : "Paused"}
+              {automation.name || "Unnamed automation"} • {automation.sourceMode === "official_hypd" ? "Official HYPD source" : "Custom source"}
             </div>
           ))}
         </div>
       ) : (
         <div className="rounded-[1.35rem] bg-surface-low p-5 text-sm text-muted">
-          No creator automations configured yet.
+          No Telegram automations configured yet.
         </div>
       )}
     </SectionShell>
@@ -501,12 +467,27 @@ export function DashboardOverview() {
   }, []);
 
   useEffect(() => {
-    const telegramStored = window.localStorage.getItem(TELEGRAM_AUTOMATIONS_KEY);
-    const whatsAppStored = window.localStorage.getItem(WHATSAPP_AUTOMATIONS_KEY);
+    async function loadAutomations() {
+      try {
+        const response = await fetch("/api/automation/telegram", { cache: "no-store" });
+        const result = (await response.json()) as TelegramAutomationResponse;
+        setAutomations({
+          telegram: response.ok && result.ok ? result.automations ?? [] : [],
+          whatsApp: []
+        });
+      } catch {
+        setAutomations({
+          telegram: [],
+          whatsApp: []
+        });
+      }
+    }
 
-    setAutomations({
-      telegram: telegramStored ? (JSON.parse(telegramStored) as TelegramAutomation[]) : [],
-      whatsApp: whatsAppStored ? (JSON.parse(whatsAppStored) as WhatsAppAutomation[]) : []
+    loadAutomations().catch(() => {
+      setAutomations({
+        telegram: [],
+        whatsApp: []
+      });
     });
   }, []);
 
@@ -519,7 +500,7 @@ export function DashboardOverview() {
         {activeKey === "topDealsQueue" ? <TopDealsQueuePanel data={data} /> : null}
         {activeKey === "manualPushes" ? <ManualPushesPanel data={data} /> : null}
         {activeKey === "telegramFlow" ? <TelegramFlowPanel automations={automations} /> : null}
-        {activeKey === "whatsAppFlow" ? <WhatsAppFlowPanel automations={automations} /> : null}
+        {activeKey === "whatsAppFlow" ? <WhatsAppFlowPanel /> : null}
         {activeKey === "filters" ? <FiltersPanel data={data} /> : null}
         {activeKey === "botSettings" ? <BotSettingsPanel data={data} automations={automations} /> : null}
         {activeKey === "socialAccounts" ? <SocialAccountsPanel automations={automations} /> : null}
