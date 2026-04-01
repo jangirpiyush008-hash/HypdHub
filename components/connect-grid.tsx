@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ArrowRightIcon, BotIcon, LinkIcon, SparklesIcon } from "@/components/icons";
 import {
   createTelegramAutomation,
   MAX_AUTOMATIONS,
@@ -33,8 +34,8 @@ type TelegramRunResponse = {
 };
 
 const postFormats: Array<{ value: PostFormat; label: string }> = [
-  { value: "with_image", label: "With image" },
-  { value: "without_image", label: "Without image" },
+  { value: "with_image", label: "Image" },
+  { value: "without_image", label: "Text" },
   { value: "both", label: "Both" }
 ];
 
@@ -117,6 +118,24 @@ function ToggleRow({
           }`}
         />
       </button>
+    </div>
+  );
+}
+
+function StepCard({
+  icon,
+  title,
+  body
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-[1.5rem] bg-surface-card p-5 shadow-ambient">
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-low text-primary">{icon}</div>
+      <h3 className="mt-4 font-headline text-xl font-extrabold tracking-[-0.03em] text-text">{title}</h3>
+      <p className="mt-2 text-sm text-muted">{body}</p>
     </div>
   );
 }
@@ -218,8 +237,8 @@ function TelegramAutomationCard({
     <article className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram automation</p>
-          <h3 className="mt-3 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram bot</p>
+          <h3 className="mt-2 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
             {automation.name || `Telegram Automation ${index + 1}`}
           </h3>
         </div>
@@ -232,136 +251,168 @@ function TelegramAutomationCard({
         </button>
       </div>
 
-      <div className="mt-6 space-y-5">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <InputField
-            label="Automation name"
-            value={automation.name}
-            placeholder="Main Telegram posting flow"
-            onChange={(value) => onChange({ ...automation, name: value })}
-          />
-          <InputField
-            label="Posting window"
-            value={automation.postingWindow}
-            placeholder="10:00 AM, 2:00 PM, 8:00 PM"
-            onChange={(value) => onChange({ ...automation, postingWindow: value })}
-          />
-        </div>
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="space-y-5">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <InputField
+              label="Name"
+              value={automation.name}
+              placeholder="Main setup"
+              onChange={(value) => onChange({ ...automation, name: value })}
+            />
+            <InputField
+              label="Destination channel"
+              value={automation.destinationChannelUsername}
+              placeholder="@your_channel"
+              onChange={(value) => onChange({ ...automation, destinationChannelUsername: value })}
+            />
+          </div>
 
-        <SourceModePicker automation={automation} onChange={onChange} />
+          <SourceModePicker automation={automation} onChange={onChange} />
 
-        <div className="grid gap-4 lg:grid-cols-2">
           {automation.sourceMode === "official_hypd" ? (
-            <div className="rounded-[1.2rem] bg-surface-low px-4 py-4 lg:col-span-2">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted">Official HYPD source</p>
-              <p className="mt-3 font-headline text-xl font-bold tracking-[-0.03em] text-text">
-                {OFFICIAL_HYPD_SOURCE_LABEL}
-              </p>
-              <p className="mt-2 text-sm text-muted">
-                Source channel: {OFFICIAL_HYPD_SOURCE_CHANNEL} • Posting bot: {OFFICIAL_HYPD_BOT_USERNAME}
-              </p>
+            <div className="rounded-[1.4rem] border border-white/10 bg-surface-low px-4 py-4">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted">Source</p>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-primary">
+                  <SparklesIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-headline text-lg font-bold tracking-[-0.03em] text-text">
+                    {OFFICIAL_HYPD_SOURCE_LABEL}
+                  </p>
+                  <p className="text-sm text-muted">{OFFICIAL_HYPD_SOURCE_CHANNEL}</p>
+                </div>
+              </div>
             </div>
           ) : (
-            <>
+            <div className="grid gap-4 lg:grid-cols-2">
               <InputField
-                label="Source label"
-                value={automation.sourceChannelLabel}
-                placeholder="My source channel"
+                label="Source channel"
+                value={automation.sourceChannelId}
+                placeholder="@source_channel"
                 onChange={(value) =>
                   onChange({
                     ...automation,
+                    sourceChannelId: value,
                     sourceChannelLabel: value
                   })
                 }
               />
               <InputField
-                label="Source channel ID"
-                value={automation.sourceChannelId}
-                placeholder="@your_source_channel or -100..."
-                onChange={(value) =>
-                  onChange({
-                    ...automation,
-                    sourceChannelId: value
-                  })
-                }
-              />
-            </>
-          )}
-          <InputField
-            label="Destination channel username"
-            value={automation.destinationChannelUsername}
-            placeholder="@your_destination_channel"
-            onChange={(value) => onChange({ ...automation, destinationChannelUsername: value })}
-          />
-          <InputField
-            label="Destination channel ID"
-            value={automation.destinationChannelId}
-            placeholder="-100..."
-            onChange={(value) => onChange({ ...automation, destinationChannelId: value })}
-          />
-          {automation.sourceMode === "custom_channel" ? (
-            <>
-              <InputField
-                label="Bot token"
-                value={automation.botToken}
-                placeholder="Paste BotFather token"
-                onChange={(value) => onChange({ ...automation, botToken: value })}
-              />
-              <InputField
                 label="Bot username"
                 value={automation.botUsername}
-                placeholder="@your_bot_username"
+                placeholder="@your_bot"
                 onChange={(value) => onChange({ ...automation, botUsername: value })}
               />
-            </>
-          ) : null}
+            </div>
+          )}
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <ToggleRow
+              label="Auto post"
+              body="Post to channel."
+              checked={automation.autoPostingEnabled}
+              onChange={(value) => onChange({ ...automation, autoPostingEnabled: value })}
+            />
+            <ToggleRow
+              label="Auto forward"
+              body="Forward fresh deals."
+              checked={automation.autoForwardEnabled}
+              onChange={(value) => onChange({ ...automation, autoForwardEnabled: value })}
+            />
+            <ToggleRow
+              label="Link convert"
+              body="Use HYPD links."
+              checked={automation.linkConversionEnabled}
+              onChange={(value) => onChange({ ...automation, linkConversionEnabled: value })}
+            />
+            <ToggleRow
+              label="Enabled"
+              body="Keep it live."
+              checked={automation.enabled}
+              onChange={(value) => onChange({ ...automation, enabled: value })}
+            />
+          </div>
+
+          <div className="rounded-[1.4rem] border border-white/10 bg-surface-low p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted">Post type</p>
+                <p className="mt-1 text-sm text-muted">Choose how the post should appear.</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <FormatPicker
+                value={automation.postFormat}
+                onChange={(value) => onChange({ ...automation, postFormat: value })}
+              />
+            </div>
+          </div>
+
+          <details className="rounded-[1.4rem] border border-white/10 bg-surface-low p-4">
+            <summary className="cursor-pointer list-none font-headline text-lg font-bold tracking-[-0.03em] text-text">
+              Advanced
+            </summary>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <InputField
+                label="Posting window"
+                value={automation.postingWindow}
+                placeholder="10 AM, 2 PM, 8 PM"
+                onChange={(value) => onChange({ ...automation, postingWindow: value })}
+              />
+              <InputField
+                label="Destination channel ID"
+                value={automation.destinationChannelId}
+                placeholder="-100..."
+                onChange={(value) => onChange({ ...automation, destinationChannelId: value })}
+              />
+              {automation.sourceMode === "custom_channel" ? (
+                <InputField
+                  label="Bot token"
+                  value={automation.botToken}
+                  placeholder="BotFather token"
+                  onChange={(value) => onChange({ ...automation, botToken: value })}
+                />
+              ) : null}
+              <TextAreaField
+                label="Caption"
+                value={automation.captionTemplate}
+                placeholder="{title}\n{marketplace} {price}\n{link}"
+                onChange={(value) => onChange({ ...automation, captionTemplate: value })}
+              />
+            </div>
+          </details>
         </div>
 
-        <TextAreaField
-          label="Caption template"
-          value={automation.captionTemplate}
-          placeholder="{title}\n{marketplace} {price}\n{link}"
-          onChange={(value) => onChange({ ...automation, captionTemplate: value })}
-        />
+        <div className="space-y-4">
+          <div className="rounded-[1.5rem] bg-surface-low p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Route</p>
+            <div className="mt-4 flex items-center gap-3 text-sm text-text">
+              <span className="rounded-full bg-white/10 px-3 py-2">
+                {automation.sourceMode === "official_hypd" ? "HYPD Deals" : "Custom Source"}
+              </span>
+              <ArrowRightIcon className="h-4 w-4 text-muted" />
+              <span className="rounded-full bg-white/10 px-3 py-2">HYPD Convert</span>
+              <ArrowRightIcon className="h-4 w-4 text-muted" />
+              <span className="rounded-full bg-white/10 px-3 py-2">Your Channel</span>
+            </div>
+          </div>
 
-        <div className="rounded-[1.2rem] bg-surface-low px-4 py-4">
-          <p className="font-headline text-lg font-bold tracking-[-0.03em] text-text">Route</p>
-          <p className="mt-1 text-sm text-muted">
-            {automation.sourceMode === "official_hypd" ? "Official HYPD deals channel" : "Custom source channel"} →
-            convert every marketplace link into the creator&apos;s HYPD link → post into the creator&apos;s
-            destination Telegram channel.
-          </p>
-        </div>
-
-        <FormatPicker
-          value={automation.postFormat}
-          onChange={(value) => onChange({ ...automation, postFormat: value })}
-        />
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ToggleRow
-            label="Link convert"
-            body="Always use HYPD links."
-            checked={automation.linkConversionEnabled}
-            onChange={(value) => onChange({ ...automation, linkConversionEnabled: value })}
+          <StepCard
+            icon={<BotIcon className="h-5 w-5" />}
+            title="1. Make bot admin"
+            body="Add the bot to the destination channel as admin."
           />
-          <ToggleRow
-            label="Auto forward"
-            body="Forward new deals."
-            checked={automation.autoForwardEnabled}
-            onChange={(value) => onChange({ ...automation, autoForwardEnabled: value })}
+          <StepCard
+            icon={<LinkIcon className="h-5 w-5" />}
+            title="2. Pick source"
+            body="Use HYPD Deals or switch to your own source channel."
           />
-          <ToggleRow
-            label="Auto posting"
-            body="Run in background."
-            checked={automation.autoPostingEnabled}
-            onChange={(value) => onChange({ ...automation, autoPostingEnabled: value })}
-          />
-          <ToggleRow
-            label="Automation enabled"
-            body="Turn this flow on."
-            checked={automation.enabled}
-            onChange={(value) => onChange({ ...automation, enabled: value })}
+          <StepCard
+            icon={<SparklesIcon className="h-5 w-5" />}
+            title="3. Save and run"
+            body="Save once, then test instantly with Run now."
           />
         </div>
       </div>
@@ -479,14 +530,17 @@ export function ConnectGrid() {
   return (
     <div className="space-y-8">
       <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram automation</p>
-            <h2 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
-              Add up to {MAX_AUTOMATIONS} Telegram automations
+            <h2 className="mt-2 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
+              Telegram Bot Setup
             </h2>
+            <p className="mt-2 text-sm text-muted">
+              Source, destination, save, run.
+            </p>
             <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-primary">
-              Official HYPD bot: {officialBotConfigured ? "Configured on backend" : "Pending Railway secret"}
+              {officialBotConfigured ? "Official bot ready" : "Official bot pending"}
             </p>
           </div>
           <button
@@ -495,7 +549,7 @@ export function ConnectGrid() {
             disabled={telegramAutomations.length >= MAX_AUTOMATIONS}
             className="rounded-xl bg-cta-gradient px-5 py-3 font-headline text-sm font-bold text-white shadow-glow disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Add Telegram Automation
+            Add Setup
           </button>
         </div>
 
@@ -521,7 +575,7 @@ export function ConnectGrid() {
       </section>
 
       <section className="rounded-[1.75rem] bg-[linear-gradient(180deg,rgba(255,171,243,0.18),rgba(138,35,135,0.34))] p-6 shadow-ambient">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Save Telegram setup</p>
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Actions</p>
         <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">Save or run</h3>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
