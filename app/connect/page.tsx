@@ -8,8 +8,8 @@ export default function ConnectPage() {
       <div className="space-y-10">
         <SectionHeading
           eyebrow="Distribution"
-          title="Bots & Automation"
-          description="Set up up to five Telegram and five WhatsApp automations with HYPD link conversion, auto forwarding, auto posting, and image or no-image posting modes."
+          title="Telegram Automation"
+          description="Set source, destination, and run."
         />
         <ConnectGrid />
       </div>

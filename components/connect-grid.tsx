@@ -102,7 +102,7 @@ function ToggleRow({
     <div className="flex items-start justify-between gap-4 rounded-[1.2rem] bg-surface-low px-4 py-4">
       <div>
         <p className="font-headline text-lg font-bold tracking-[-0.03em] text-text">{label}</p>
-        <p className="mt-2 text-sm leading-7 text-muted">{body}</p>
+        <p className="mt-1 text-sm text-muted">{body}</p>
       </div>
       <button
         type="button"
@@ -232,7 +232,7 @@ function TelegramAutomationCard({
         </button>
       </div>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 space-y-5">
         <div className="grid gap-4 lg:grid-cols-2">
           <InputField
             label="Automation name"
@@ -325,8 +325,8 @@ function TelegramAutomationCard({
         />
 
         <div className="rounded-[1.2rem] bg-surface-low px-4 py-4">
-          <p className="font-headline text-lg font-bold tracking-[-0.03em] text-text">Automation route</p>
-          <p className="mt-2 text-sm leading-7 text-muted">
+          <p className="font-headline text-lg font-bold tracking-[-0.03em] text-text">Route</p>
+          <p className="mt-1 text-sm text-muted">
             {automation.sourceMode === "official_hypd" ? "Official HYPD deals channel" : "Custom source channel"} →
             convert every marketplace link into the creator&apos;s HYPD link → post into the creator&apos;s
             destination Telegram channel.
@@ -341,25 +341,25 @@ function TelegramAutomationCard({
         <div className="grid gap-4 lg:grid-cols-2">
           <ToggleRow
             label="Link convert"
-            body="Always convert source links into the creator's HYPD trackable link before posting."
+            body="Always use HYPD links."
             checked={automation.linkConversionEnabled}
             onChange={(value) => onChange({ ...automation, linkConversionEnabled: value })}
           />
           <ToggleRow
             label="Auto forward"
-            body="Keep sending fresh source-channel deals into the destination Telegram channel."
+            body="Forward new deals."
             checked={automation.autoForwardEnabled}
             onChange={(value) => onChange({ ...automation, autoForwardEnabled: value })}
           />
           <ToggleRow
             label="Auto posting"
-            body="Allow scheduled background posting without pressing Run now."
+            body="Run in background."
             checked={automation.autoPostingEnabled}
             onChange={(value) => onChange({ ...automation, autoPostingEnabled: value })}
           />
           <ToggleRow
             label="Automation enabled"
-            body="Keep this Telegram automation active."
+            body="Turn this flow on."
             checked={automation.enabled}
             onChange={(value) => onChange({ ...automation, enabled: value })}
           />
@@ -478,29 +478,6 @@ export function ConnectGrid() {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-5 lg:grid-cols-3">
-        {[
-          {
-            title: "Top trending deals",
-            body: "Deals refresh every 2 hours from backend sources and show real marketplace links on the site."
-          },
-          {
-            title: "Simple Telegram setup",
-            body: "Pick official HYPD source or your own source, choose your destination channel, and start posting."
-          },
-          {
-            title: "HYPD links only",
-            body: "Outgoing posts should always use HYPD-converted links so commission stays tracked in the creator's HYPD account."
-          }
-        ].map((item) => (
-          <article key={item.title} className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Telegram-first rollout</p>
-            <h3 className="mt-4 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">{item.title}</h3>
-            <p className="mt-3 text-sm leading-7 text-muted">{item.body}</p>
-          </article>
-        ))}
-      </section>
-
       <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -508,9 +485,6 @@ export function ConnectGrid() {
             <h2 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
               Add up to {MAX_AUTOMATIONS} Telegram automations
             </h2>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
-              For most users, only three things matter: source, destination channel, and whether posting should run automatically.
-            </p>
             <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-primary">
               Official HYPD bot: {officialBotConfigured ? "Configured on backend" : "Pending Railway secret"}
             </p>
@@ -548,12 +522,7 @@ export function ConnectGrid() {
 
       <section className="rounded-[1.75rem] bg-[linear-gradient(180deg,rgba(255,171,243,0.18),rgba(138,35,135,0.34))] p-6 shadow-ambient">
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Save Telegram setup</p>
-        <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">
-          Keep Telegram automation ready on the backend
-        </h3>
-        <p className="mt-3 max-w-3xl text-sm leading-7 text-text/85">
-          Save the setup first, then use Run Telegram Now to test one live post immediately.
-        </p>
+        <h3 className="mt-3 font-headline text-3xl font-extrabold tracking-[-0.04em] text-text">Save or run</h3>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-text/85">{savedAt ? `Last saved at ${savedAt}` : "Not saved yet."}</p>
@@ -582,13 +551,7 @@ export function ConnectGrid() {
 
       <section className="rounded-[1.75rem] bg-surface-card p-6 shadow-ambient">
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">WhatsApp next</p>
-        <h3 className="mt-3 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
-          WhatsApp automation will be wired after Telegram
-        </h3>
-        <p className="mt-3 text-sm leading-7 text-muted">
-          The next backend step for WhatsApp will use business credentials, templates, and webhook setup. Once you
-          share those details, we can wire WhatsApp with the same HYPD link-conversion rule.
-        </p>
+        <h3 className="mt-3 font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">WhatsApp coming next</h3>
       </section>
     </div>
   );
