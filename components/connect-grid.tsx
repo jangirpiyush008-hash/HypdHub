@@ -283,12 +283,6 @@ function TelegramAutomationCard({
         <div className="space-y-5">
           <div className="grid gap-4 lg:grid-cols-2">
             <InputField
-              label="Name"
-              value={automation.name}
-              placeholder="Main setup"
-              onChange={(value) => onChange({ ...automation, name: value })}
-            />
-            <InputField
               label="Destination channel"
               value={automation.destinationChannelUsername}
               placeholder="@your_channel"
