@@ -1,6 +1,11 @@
 import { cookies } from "next/headers";
 import { CreatorProfile } from "@/lib/types";
 import {
+  clearCreatorSession,
+  getCreatorSession,
+  saveCreatorSession
+} from "@/lib/runtime/hypd-creator-sessions";
+import {
   CATALOG_URL,
   ENTITY_URL,
   HYPD_UPSTREAM_SESSION_COOKIE,
@@ -8,7 +13,7 @@ import {
   normalizeMobileNumber
 } from "@/lib/auth";
 
-type UpstreamCookie = {
+export type UpstreamCookie = {
   name: string;
   value: string;
 };
@@ -327,6 +332,8 @@ export async function verifyHypdOtp(mobileNumber: string, otp: string) {
     };
   }
 
+  await saveCreatorSession(creator, mergedCookies);
+
   return {
     ok: true,
     message: "Login successful.",
@@ -336,18 +343,25 @@ export async function verifyHypdOtp(mobileNumber: string, otp: string) {
 
 export async function logoutHypdSession() {
   const storedCookies = await getStoredHypdCookies();
+  const creator = storedCookies.length > 0 ? await fetchCurrentHypdCreator(storedCookies) : null;
 
   if (storedCookies.length > 0) {
     await hypdFetch(`${ENTITY_URL}/api/user/auth/logout`, { method: "GET" }, storedCookies).catch(() => null);
   }
 
   await clearStoredHypdCookies();
+
+  if (creator?.id) {
+    await clearCreatorSession(creator.id).catch(() => null);
+  }
 }
 
-export async function convertHypdMarketplaceLink(sourceUrl: string, creator: CreatorProfile) {
-  const storedCookies = await getStoredHypdCookies();
-
-  if (storedCookies.length === 0) {
+export async function convertHypdMarketplaceLinkWithCookies(
+  sourceUrl: string,
+  creator: CreatorProfile,
+  upstreamCookies: UpstreamCookie[]
+) {
+  if (upstreamCookies.length === 0) {
     throw new Error("Login required");
   }
 
@@ -359,7 +373,7 @@ export async function convertHypdMarketplaceLink(sourceUrl: string, creator: Cre
         product_link: sourceUrl
       })
     },
-    storedCookies
+    upstreamCookies
   );
   const deeplinkPayload = await deeplinkResponse.json().catch(() => null);
 
@@ -378,7 +392,7 @@ export async function convertHypdMarketplaceLink(sourceUrl: string, creator: Cre
         username: creator.hypdUsername
       })
     },
-    storedCookies
+    upstreamCookies
   );
   const universalPayload = await universalResponse.json().catch(() => null);
 
@@ -387,4 +401,23 @@ export async function convertHypdMarketplaceLink(sourceUrl: string, creator: Cre
   }
 
   return universalPayload.payload;
+}
+
+export async function convertHypdMarketplaceLink(sourceUrl: string, creator: CreatorProfile) {
+  const storedCookies = await getStoredHypdCookies();
+  return convertHypdMarketplaceLinkWithCookies(sourceUrl, creator, storedCookies);
+}
+
+export async function getStoredCreatorSession(creatorId: string) {
+  return getCreatorSession(creatorId);
+}
+
+export async function convertHypdMarketplaceLinkForStoredCreator(creatorId: string, sourceUrl: string) {
+  const session = await getCreatorSession(creatorId);
+
+  if (!session) {
+    throw new Error("Creator session unavailable. Please login again.");
+  }
+
+  return convertHypdMarketplaceLinkWithCookies(sourceUrl, session.creator, session.cookies);
 }

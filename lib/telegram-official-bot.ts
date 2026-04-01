@@ -25,10 +25,7 @@ export function normalizeTelegramAutomationForSave(automation: TelegramAutomatio
 
 export function sanitizeTelegramAutomationForClient(automation: TelegramAutomation): TelegramAutomation {
   if (automation.sourceMode !== "official_hypd") {
-    return {
-      ...automation,
-      botToken: automation.botToken ? "••••••••" : ""
-    };
+    return automation;
   }
 
   return {

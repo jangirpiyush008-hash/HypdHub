@@ -69,6 +69,8 @@ const telegramChannels: TelegramChannelSource[] = [
   { id: 31, url: "https://t.me/+EA1nJVHLfPw0YzQ1", handle: null, title: null, access: "not_joined", marketplaceFocus: ["Mixed"] },
   { id: 32, url: "https://t.me/+Th6aG5Zaxz_i_u7a", handle: null, title: "Offer Box Official", access: "readable_now", marketplaceFocus: ["Mixed"] },
   { id: 33, url: "https://t.me/+0gqlB6-vq8I4OWJl", handle: null, title: null, access: "rate_limited_temp", marketplaceFocus: ["Mixed"] }
+  ,
+  { id: 34, url: "https://t.me/hypdeals", handle: "hypdeals", title: "Official HYPD Deals", access: "readable_now", marketplaceFocus: ["Mixed"] }
 ];
 
 const supportedMarketplaces: SupportedMarketplace[] = [

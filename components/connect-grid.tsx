@@ -19,6 +19,19 @@ type TelegramAutomationResponse = {
   officialBotConfigured?: boolean;
 };
 
+type TelegramRunResponse = {
+  ok: boolean;
+  message?: string;
+  results?: Array<{
+    automationId: string;
+    automationName: string;
+    ok: boolean;
+    postedDeal?: string;
+    postedLink?: string;
+    message?: string;
+  }>;
+};
+
 const postFormats: Array<{ value: PostFormat; label: string }> = [
   { value: "with_image", label: "With image" },
   { value: "without_image", label: "Without image" },
@@ -363,6 +376,7 @@ export function ConnectGrid() {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [telegramAutomations, setTelegramAutomations] = useState<TelegramAutomation[]>([]);
   const [officialBotConfigured, setOfficialBotConfigured] = useState(false);
+  const [isRunningNow, setIsRunningNow] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -422,6 +436,35 @@ export function ConnectGrid() {
       setStatus("Unable to save Telegram automation right now.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function runTelegramAutomationNow() {
+    setIsRunningNow(true);
+    setStatus("Running Telegram automation now...");
+
+    try {
+      const response = await fetch("/api/automation/telegram/run", {
+        method: "POST"
+      });
+      const result = (await response.json()) as TelegramRunResponse;
+
+      if (!response.ok || !result.ok) {
+        const firstError = result.results?.find((item) => !item.ok)?.message;
+        setStatus(firstError ?? result.message ?? "Unable to run Telegram automation right now.");
+        return;
+      }
+
+      const success = result.results?.find((item) => item.ok);
+      setStatus(
+        success?.postedDeal
+          ? `Telegram automation posted: ${success.postedDeal}`
+          : "Telegram automation ran successfully."
+      );
+    } catch {
+      setStatus("Unable to run Telegram automation right now.");
+    } finally {
+      setIsRunningNow(false);
     }
   }
 
@@ -517,14 +560,24 @@ export function ConnectGrid() {
             <p className="text-sm text-text/85">{savedAt ? `Last saved at ${savedAt}` : "Not saved yet."}</p>
             <p className="mt-2 text-xs uppercase tracking-[0.24em] text-text/70">{status}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => void saveTelegramAutomations()}
-            disabled={isSaving}
-            className="rounded-xl bg-white/15 px-5 py-3 font-headline text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSaving ? "Saving..." : "Save Telegram Automation"}
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => void runTelegramAutomationNow()}
+              disabled={isRunningNow}
+              className="rounded-xl bg-white/15 px-5 py-3 font-headline text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isRunningNow ? "Running..." : "Run Telegram Now"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveTelegramAutomations()}
+              disabled={isSaving}
+              className="rounded-xl bg-white/15 px-5 py-3 font-headline text-sm font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSaving ? "Saving..." : "Save Telegram Automation"}
+            </button>
+          </div>
         </div>
       </section>
 
