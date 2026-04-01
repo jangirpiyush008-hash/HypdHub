@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import {
   createTelegramAutomation,
   MAX_AUTOMATIONS,
+  OFFICIAL_HYPD_BOT_USERNAME,
+  OFFICIAL_HYPD_SOURCE_CHANNEL,
   OFFICIAL_HYPD_SOURCE_LABEL,
   PostFormat,
   TelegramAutomation
@@ -122,7 +124,9 @@ function SourceModePicker({
             onChange({
               ...automation,
               sourceMode: "official_hypd",
-              sourceChannelLabel: OFFICIAL_HYPD_SOURCE_LABEL
+              sourceChannelLabel: OFFICIAL_HYPD_SOURCE_LABEL,
+              sourceChannelId: OFFICIAL_HYPD_SOURCE_CHANNEL,
+              botUsername: automation.botUsername || OFFICIAL_HYPD_BOT_USERNAME
             })
           }
           className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] ${
@@ -237,13 +241,23 @@ function TelegramAutomationCard({
             label="Source label"
             value={automation.sourceChannelLabel}
             placeholder="Official HYPD Deals Channel"
-            onChange={(value) => onChange({ ...automation, sourceChannelLabel: value })}
+            onChange={(value) =>
+              onChange({
+                ...automation,
+                sourceChannelLabel: automation.sourceMode === "official_hypd" ? OFFICIAL_HYPD_SOURCE_LABEL : value
+              })
+            }
           />
           <InputField
             label="Source channel ID"
             value={automation.sourceChannelId}
-            placeholder="@hypd_official or -100..."
-            onChange={(value) => onChange({ ...automation, sourceChannelId: value })}
+            placeholder="@hypdeals or -100..."
+            onChange={(value) =>
+              onChange({
+                ...automation,
+                sourceChannelId: automation.sourceMode === "official_hypd" ? OFFICIAL_HYPD_SOURCE_CHANNEL : value
+              })
+            }
           />
           <InputField
             label="Destination channel username"
@@ -266,7 +280,7 @@ function TelegramAutomationCard({
           <InputField
             label="Bot username"
             value={automation.botUsername}
-            placeholder="@your_bot_username"
+            placeholder="@HypdConverterbot"
             onChange={(value) => onChange({ ...automation, botUsername: value })}
           />
           <InputField
@@ -295,6 +309,15 @@ function TelegramAutomationCard({
           placeholder="Deal title\nOffer line\nAlways converted HYPD link\nCTA"
           onChange={(value) => onChange({ ...automation, captionTemplate: value })}
         />
+
+        <div className="rounded-[1.2rem] bg-surface-low px-4 py-4">
+          <p className="font-headline text-lg font-bold tracking-[-0.03em] text-text">Automation route</p>
+          <p className="mt-2 text-sm leading-7 text-muted">
+            {automation.sourceMode === "official_hypd" ? "Official HYPD deals channel" : "Custom source channel"} →
+            convert every marketplace link into the creator&apos;s HYPD link → post into the creator&apos;s
+            destination Telegram channel.
+          </p>
+        </div>
 
         <FormatPicker
           value={automation.postFormat}

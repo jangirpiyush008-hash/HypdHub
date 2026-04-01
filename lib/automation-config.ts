@@ -1,4 +1,7 @@
 export const MAX_AUTOMATIONS = 5;
+export const OFFICIAL_HYPD_SOURCE_LABEL = "Official HYPD Deals Channel";
+export const OFFICIAL_HYPD_SOURCE_CHANNEL = "@hypdeals";
+export const OFFICIAL_HYPD_BOT_USERNAME = "@HypdConverterbot";
 
 export type PostFormat = "with_image" | "without_image" | "both";
 export type TelegramSourceMode = "official_hypd" | "custom_channel";
@@ -41,7 +44,6 @@ export type WhatsAppAutomation = BaseAutomation & {
 export const TELEGRAM_AUTOMATIONS_KEY = "hypd-telegram-automations";
 export const WHATSAPP_AUTOMATIONS_KEY = "hypd-whatsapp-automations";
 export const AUTOMATIONS_SAVED_AT_KEY = "hypd-automations-saved-at";
-export const OFFICIAL_HYPD_SOURCE_LABEL = "Official HYPD Deals Channel";
 
 function createId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -53,7 +55,7 @@ export function createTelegramAutomation(): TelegramAutomation {
     name: "",
     sourceMode: "official_hypd",
     sourceChannelLabel: OFFICIAL_HYPD_SOURCE_LABEL,
-    sourceChannelId: "",
+    sourceChannelId: OFFICIAL_HYPD_SOURCE_CHANNEL,
     postingWindow: "",
     captionTemplate: "",
     fallbackTarget: "",
@@ -63,7 +65,7 @@ export function createTelegramAutomation(): TelegramAutomation {
     autoPostingEnabled: false,
     enabled: true,
     botToken: "",
-    botUsername: "",
+    botUsername: OFFICIAL_HYPD_BOT_USERNAME,
     destinationChannelUsername: "",
     destinationChannelId: "",
     adminUserId: "",
