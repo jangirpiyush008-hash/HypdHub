@@ -140,6 +140,34 @@ function StepCard({
   );
 }
 
+function AccessNotice({ automation }: { automation: TelegramAutomation }) {
+  const usingOfficialSource = automation.sourceMode === "official_hypd";
+
+  return (
+    <div className="rounded-[1.4rem] border border-white/10 bg-surface-low p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">How this works</p>
+      <div className="mt-3 space-y-2 text-sm text-muted">
+        <p>
+          <span className="font-semibold text-text">Destination:</span> add {OFFICIAL_HYPD_BOT_USERNAME} as admin in{" "}
+          your channel so it can post there.
+        </p>
+        <p>
+          <span className="font-semibold text-text">Source:</span>{" "}
+          {usingOfficialSource
+            ? `we read deals from ${OFFICIAL_HYPD_SOURCE_CHANNEL}, convert them to your HYPD link, then post in your channel.`
+            : "we read deals from your source channel, convert them to your HYPD link, then post in your channel."}
+        </p>
+        <p>
+          <span className="font-semibold text-text">Important:</span>{" "}
+          {usingOfficialSource
+            ? `you do not need bot admin in ${OFFICIAL_HYPD_SOURCE_CHANNEL}.`
+            : "if your custom source is private, that source must also be readable by our bot or backend session."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function SourceModePicker({
   automation,
   onChange
@@ -281,7 +309,9 @@ function TelegramAutomationCard({
                   <p className="font-headline text-lg font-bold tracking-[-0.03em] text-text">
                     {OFFICIAL_HYPD_SOURCE_LABEL}
                   </p>
-                  <p className="text-sm text-muted">{OFFICIAL_HYPD_SOURCE_CHANNEL}</p>
+                  <p className="text-sm text-muted">
+                    {OFFICIAL_HYPD_SOURCE_CHANNEL} · no source setup needed
+                  </p>
                 </div>
               </div>
             </div>
@@ -308,22 +338,24 @@ function TelegramAutomationCard({
             </div>
           )}
 
+          <AccessNotice automation={automation} />
+
           <div className="grid gap-3 md:grid-cols-2">
             <ToggleRow
               label="Auto post"
-              body="Post to channel."
+              body="Send converted deals to your channel."
               checked={automation.autoPostingEnabled}
               onChange={(value) => onChange({ ...automation, autoPostingEnabled: value })}
             />
             <ToggleRow
               label="Auto forward"
-              body="Forward fresh deals."
+              body="Pick fresh source deals automatically."
               checked={automation.autoForwardEnabled}
               onChange={(value) => onChange({ ...automation, autoForwardEnabled: value })}
             />
             <ToggleRow
               label="Link convert"
-              body="Use HYPD links."
+              body="Always post your HYPD tracking link."
               checked={automation.linkConversionEnabled}
               onChange={(value) => onChange({ ...automation, linkConversionEnabled: value })}
             />
@@ -402,12 +434,16 @@ function TelegramAutomationCard({
           <StepCard
             icon={<BotIcon className="h-5 w-5" />}
             title="1. Make bot admin"
-            body="Add the bot to the destination channel as admin."
+            body="Add the bot only in your destination channel so it can post there."
           />
           <StepCard
             icon={<LinkIcon className="h-5 w-5" />}
             title="2. Pick source"
-            body="Use HYPD Deals or switch to your own source channel."
+            body={
+              automation.sourceMode === "official_hypd"
+                ? "Official HYPD source works directly. No source-channel admin needed."
+                : "Use your own source channel. Private sources must also be readable."
+            }
           />
           <StepCard
             icon={<SparklesIcon className="h-5 w-5" />}
