@@ -5,6 +5,7 @@ import {
   getTelegramAutomationsForCreator,
   saveTelegramAutomationsForCreator
 } from "@/lib/runtime/telegram-automations";
+import { getOfficialTelegramBotToken } from "@/lib/telegram-official-bot";
 
 export async function GET() {
   const creator = await fetchCurrentHypdCreator();
@@ -18,7 +19,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     creatorId: creator.id,
-    automations
+    automations,
+    officialBotConfigured: Boolean(getOfficialTelegramBotToken())
   });
 }
 
@@ -44,6 +46,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     updatedAt: result.updatedAt,
-    automations: result.automations
+    automations: result.automations,
+    officialBotConfigured: Boolean(getOfficialTelegramBotToken())
   });
 }

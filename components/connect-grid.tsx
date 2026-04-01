@@ -16,6 +16,7 @@ type TelegramAutomationResponse = {
   updatedAt?: string;
   automations?: TelegramAutomation[];
   message?: string;
+  officialBotConfigured?: boolean;
 };
 
 const postFormats: Array<{ value: PostFormat; label: string }> = [
@@ -361,6 +362,7 @@ export function ConnectGrid() {
   const [status, setStatus] = useState("Loading Telegram automation setup...");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [telegramAutomations, setTelegramAutomations] = useState<TelegramAutomation[]>([]);
+  const [officialBotConfigured, setOfficialBotConfigured] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -375,6 +377,7 @@ export function ConnectGrid() {
 
       setTelegramAutomations(result.automations?.length ? result.automations : [createTelegramAutomation()]);
       setSavedAt(result.updatedAt ?? null);
+      setOfficialBotConfigured(Boolean(result.officialBotConfigured));
       setStatus("Telegram automation loaded.");
       setIsReady(true);
     }
@@ -413,6 +416,7 @@ export function ConnectGrid() {
 
       setTelegramAutomations(result.automations?.length ? result.automations : telegramAutomations);
       setSavedAt(result.updatedAt ?? null);
+      setOfficialBotConfigured(Boolean(result.officialBotConfigured));
       setStatus("Telegram automation saved.");
     } catch {
       setStatus("Unable to save Telegram automation right now.");
@@ -464,6 +468,9 @@ export function ConnectGrid() {
             <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
               Each automation can pick the official HYPD source channel or a custom source channel, then post into the creator's
               destination channel with automatic HYPD link conversion, forwarding, and scheduled posting.
+            </p>
+            <p className="mt-2 text-xs font-bold uppercase tracking-[0.24em] text-primary">
+              Official HYPD bot: {officialBotConfigured ? "Configured on backend" : "Pending Railway secret"}
             </p>
           </div>
           <button

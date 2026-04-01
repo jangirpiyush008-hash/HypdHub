@@ -1,6 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { TelegramAutomation } from "@/lib/automation-config";
+import {
+  normalizeTelegramAutomationForSave,
+  sanitizeTelegramAutomationForClient
+} from "@/lib/telegram-official-bot";
 
 type TelegramAutomationStore = {
   updatedAt: string | null;
@@ -33,17 +37,17 @@ async function writeStore(store: TelegramAutomationStore) {
 
 export async function getTelegramAutomationsForCreator(creatorId: string) {
   const store = await readStore();
-  return store.byCreatorId[creatorId] ?? [];
+  return (store.byCreatorId[creatorId] ?? []).map(sanitizeTelegramAutomationForClient);
 }
 
 export async function saveTelegramAutomationsForCreator(creatorId: string, automations: TelegramAutomation[]) {
   const store = await readStore();
-  store.byCreatorId[creatorId] = automations.slice(0, 5);
+  store.byCreatorId[creatorId] = automations.slice(0, 5).map(normalizeTelegramAutomationForSave);
   store.updatedAt = new Date().toISOString();
   await writeStore(store);
 
   return {
     updatedAt: store.updatedAt,
-    automations: store.byCreatorId[creatorId]
+    automations: store.byCreatorId[creatorId].map(sanitizeTelegramAutomationForClient)
   };
 }
