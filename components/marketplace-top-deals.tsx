@@ -120,7 +120,9 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
       ) : null}
 
       {/* Marketplace boards */}
-      {Object.entries(data.topDealsByMarketplace).map(([marketplace, deals]) => (
+      {Object.entries(data.topDealsByMarketplace)
+        .filter(([, deals]) => deals.length > 0)
+        .map(([marketplace, deals]) => (
         <div key={marketplace} className="rounded-xl bg-surface-card p-5">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-headline text-lg font-bold text-text">{marketplace}</h3>
@@ -144,9 +146,13 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
                   </div>
                   <div className="mt-3 flex items-end justify-between gap-2">
                     <div>
-                      <p className="font-headline text-lg font-bold text-text">
-                        {deal.currentPrice ? `₹${deal.currentPrice.toLocaleString("en-IN")}` : "—"}
-                      </p>
+                      {deal.currentPrice ? (
+                        <p className="font-headline text-lg font-bold text-text">
+                          ₹{deal.currentPrice.toLocaleString("en-IN")}
+                        </p>
+                      ) : deal.mentionsCount > 1 ? (
+                        <p className="text-xs font-bold text-primary">{deal.mentionsCount} orders</p>
+                      ) : null}
                       {deal.originalPrice ? (
                         <p className="text-xs text-muted line-through">₹{deal.originalPrice.toLocaleString("en-IN")}</p>
                       ) : null}

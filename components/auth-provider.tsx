@@ -17,6 +17,7 @@ type AuthContextValue = {
   verifyOtp: (otp: string) => Promise<{
     ok: boolean;
     message: string;
+    username: string | null;
   }>;
   logout: () => Promise<void>;
 };
@@ -104,7 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!pendingMobileNumber) {
       return {
         ok: false,
-        message: "Enter your HYPD mobile number first."
+        message: "Enter your HYPD mobile number first.",
+        username: null as string | null
       };
     }
 
@@ -128,7 +130,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!response.ok || !result.ok || !result.creator) {
         return {
           ok: false,
-          message: result.message || "Incorrect OTP. Please try again."
+          message: result.message || "Incorrect OTP. Please try again.",
+          username: null as string | null
         };
       }
 
@@ -140,12 +143,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return {
         ok: true,
-        message: result.message
+        message: result.message,
+        username: result.creator.hypdUsername
       };
     } catch {
       return {
         ok: false,
-        message: "Unable to verify OTP right now."
+        message: "Unable to verify OTP right now.",
+        username: null as string | null
       };
     }
   }

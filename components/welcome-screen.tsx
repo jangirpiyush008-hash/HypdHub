@@ -7,7 +7,7 @@ export function WelcomeScreen({ username, onComplete }: { username: string; onCo
   // 0=blank, 1=HYPD, 2=Deal, 3=Hub, 4=welcome username, 5=exit
 
   useEffect(() => {
-    const timings = [300, 900, 1500, 2100, 2700, 3400];
+    const timings = [150, 500, 850, 1200, 1700, 2200];
     const timers = timings.map((ms, i) =>
       setTimeout(() => {
         if (i < 5) setStep(i + 1);

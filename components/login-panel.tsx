@@ -55,7 +55,7 @@ export function LoginPanel() {
     setStatus(result.message);
     setLoading("idle");
     if (result.ok) {
-      setWelcomeUsername(creator?.hypdUsername ?? pendingHypdUsername ?? "creator");
+      setWelcomeUsername(result.username ?? pendingHypdUsername ?? "creator");
       setShowWelcome(true);
     }
   }
