@@ -11,7 +11,8 @@ const supportedMarketplaces: InternetDeal["marketplace"][] = [
   "Flipkart",
   "Shopsy",
   "Ajio",
-  "Nykaa"
+  "Nykaa",
+  "HYPD"
 ];
 
 function emptyMarketplaceBoards() {
@@ -21,14 +22,23 @@ function emptyMarketplaceBoards() {
   }, {});
 }
 
+// Cache ranking response for 60 seconds
+let rankingCache: { data: unknown; fetchedAt: number } | null = null;
+const RANKING_CACHE_MS = 60_000;
+
 export async function GET() {
+  const now = Date.now();
+  if (rankingCache && now - rankingCache.fetchedAt < RANKING_CACHE_MS) {
+    return NextResponse.json(rankingCache.data);
+  }
+
   await ensureAutomaticRefresh("api-ranking");
 
   const [hypd, marketplaces, telegram, telegramDeals, refresh] = await Promise.all([
-    fetchHypdProducts(),
+    fetchHypdProducts().catch(() => ({ status: "error", notes: [] as string[], hotSellingProducts: [], hotSellingBrands: [], marketplaceCommissions: [], stats: { sales: null, orders: null, withdrawable: null, pending: null }, lastSyncedAt: null })),
     fetchMarketplaceSnapshots(),
     fetchTelegramSignalSummary(),
-    fetchTelegramDeals(),
+    fetchTelegramDeals().catch(() => ({ deals: [] as InternetDeal[], topDealsByMarketplace: {} as Record<string, InternetDeal[]> })),
     getRefreshStatus()
   ]);
 
@@ -37,7 +47,7 @@ export async function GET() {
     .sort((left, right) => right.score - left.score)
     .slice(0, 10);
 
-  return NextResponse.json({
+  const responseData = {
     refreshWindowHours: 2,
     topDeals,
     topDealsByMarketplace:
@@ -50,5 +60,9 @@ export async function GET() {
       telegram
     },
     refresh
-  });
+  };
+
+  rankingCache = { data: responseData, fetchedAt: now };
+
+  return NextResponse.json(responseData);
 }

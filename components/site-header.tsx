@@ -34,13 +34,14 @@ export function SiteHeader() {
             <span className="text-text/60"> Hub</span>
           </Link>
 
-          {/* Papapa button */}
+          {/* Papapa button — highlighted with glow */}
           <a
             href="https://getpapapa.com/"
             target="_blank"
             rel="noreferrer"
-            className="hidden items-center gap-1 rounded-full bg-tertiary/15 px-2.5 py-1 text-[10px] font-bold text-tertiary transition-colors hover:bg-tertiary/25 sm:inline-flex"
+            className="hidden items-center gap-1.5 rounded-full bg-tertiary px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_0_12px_rgba(var(--color-tertiary),0.4)] transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(var(--color-tertiary),0.6)] active:scale-95 sm:inline-flex animate-pulse-subtle"
           >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
             <span>Shop Papapa</span>
           </a>
         </div>

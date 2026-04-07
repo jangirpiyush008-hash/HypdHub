@@ -12,7 +12,8 @@ const supportedMarketplaces: InternetDeal["marketplace"][] = [
   "Flipkart",
   "Shopsy",
   "Ajio",
-  "Nykaa"
+  "Nykaa",
+  "HYPD"
 ];
 
 function emptyMarketplaceBoards() {
@@ -22,18 +23,18 @@ function emptyMarketplaceBoards() {
   }, {});
 }
 
-/** Convert HYPD hot-selling products into InternetDeal format so the deals page always has content */
+/** Convert HYPD hot-selling products into InternetDeal format under "HYPD" marketplace */
 function hypdProductsToDeals(hypd: Awaited<ReturnType<typeof fetchHypdProducts>>): InternetDeal[] {
   if (hypd.status !== "live" || !hypd.hotSellingProducts.length) return [];
 
   const now = new Date().toISOString();
   return hypd.hotSellingProducts.map((p) => ({
     id: `hypd-${p.id}`,
-    marketplace: "Myntra" as const, // HYPD Store products — show under a known marketplace
+    marketplace: "HYPD" as const,
     canonicalUrl: p.productUrl ?? "",
     originalUrl: p.productUrl ?? "",
     title: p.title,
-    category: "HYPD Store",
+    category: p.brandName || "HYPD Store",
     currentPrice: null,
     originalPrice: null,
     discountPercent: null,
@@ -51,14 +52,25 @@ function hypdProductsToDeals(hypd: Awaited<ReturnType<typeof fetchHypdProducts>>
   }));
 }
 
+// Cache deals response for 60 seconds to avoid re-fetching on every request
+let dealsCache: { data: unknown; fetchedAt: number } | null = null;
+const DEALS_CACHE_MS = 60_000;
+
 export async function GET(request: NextRequest) {
+  const now = Date.now();
+
+  // Return cached response if fresh
+  if (dealsCache && now - dealsCache.fetchedAt < DEALS_CACHE_MS) {
+    return NextResponse.json(dealsCache.data);
+  }
+
   await ensureAutomaticRefresh("api-deals");
   const { searchParams } = new URL(request.url);
   const marketplace = searchParams.get("marketplace");
   const minPrice = Number(searchParams.get("minPrice") ?? "0");
   const maxPrice = Number(searchParams.get("maxPrice") ?? "999999");
 
-  // Fetch from all sources in parallel: Telegram, HYPD, marketplace scraper
+  // Fetch from all sources in parallel with individual error handling
   const [telegram, history, refresh, hypd, scraped] = await Promise.all([
     fetchTelegramDeals().catch(() => ({ deals: [] as InternetDeal[], topDealsByMarketplace: {} as Record<string, InternetDeal[]> })),
     getDealHistorySummary(),
@@ -75,21 +87,20 @@ export async function GET(request: NextRequest) {
     scrapeMarketplaceDeals().catch(() => ({ deals: [] as InternetDeal[], sources: [] as string[], scrapedAt: new Date().toISOString() }))
   ]);
 
-  // Convert HYPD trending products into deal format
+  // Convert HYPD trending products into deal format (under "HYPD" marketplace)
   const hypdDeals = hypdProductsToDeals(hypd);
 
-  // Merge all sources
+  // Merge all sources — each stays under its own marketplace
   const allDeals = [...telegram.deals, ...scraped.deals, ...hypdDeals];
 
   const filteredDeals = allDeals.filter((deal) => {
     const marketplaceMatch = !marketplace || marketplace === "All" || deal.marketplace === marketplace;
     const price = deal.currentPrice ?? 0;
-    // For deals without price (HYPD products), include them if no price filter is active
     const priceMatch = deal.currentPrice === null || (price >= minPrice && price <= maxPrice);
     return marketplaceMatch && priceMatch;
   });
 
-  // Build top deals by marketplace, merging all sources
+  // Build top deals by marketplace
   const topDealsByMarketplace: Record<string, InternetDeal[]> = { ...emptyMarketplaceBoards() };
   for (const deal of allDeals) {
     if (supportedMarketplaces.includes(deal.marketplace as InternetDeal["marketplace"])) {
@@ -107,7 +118,7 @@ export async function GET(request: NextRequest) {
       .slice(0, 10);
   }
 
-  // Override with Telegram data if it has more deals
+  // Override with Telegram data if it has more deals for a specific marketplace
   const telegramBoards = telegram.topDealsByMarketplace;
   for (const [key, deals] of Object.entries(telegramBoards)) {
     if (deals.length > (topDealsByMarketplace[key]?.length ?? 0)) {
@@ -115,7 +126,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({
+  const responseData = {
     generatedAt: new Date().toISOString(),
     refreshWindowHours: 2,
     deals: filteredDeals,
@@ -128,5 +139,9 @@ export async function GET(request: NextRequest) {
     history,
     refresh,
     hypd
-  });
+  };
+
+  dealsCache = { data: responseData, fetchedAt: now };
+
+  return NextResponse.json(responseData);
 }

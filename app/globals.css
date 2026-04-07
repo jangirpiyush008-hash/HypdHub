@@ -143,3 +143,12 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(35, 209, 135, 0.3); }
+  50% { opacity: 0.85; box-shadow: 0 0 16px rgba(35, 209, 135, 0.5); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.5s ease-in-out infinite;
+}

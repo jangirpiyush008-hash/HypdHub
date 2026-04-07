@@ -27,7 +27,7 @@ export type RankingBreakdown = {
 
 export type InternetDeal = {
   id: string;
-  marketplace: "Myntra" | "Amazon" | "Flipkart" | "Shopsy" | "Ajio" | "Nykaa";
+  marketplace: "Myntra" | "Amazon" | "Flipkart" | "Shopsy" | "Ajio" | "Nykaa" | "HYPD";
   canonicalUrl: string;
   originalUrl: string;
   title: string;

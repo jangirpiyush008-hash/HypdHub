@@ -1,44 +1,51 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useCreatorAuth } from "@/components/auth-provider";
 import { PapapaPromo, shouldShowPapapaPromo } from "@/components/papapa-promo";
 import { WelcomeScreen } from "@/components/welcome-screen";
+
+type PostLoginPhase = "none" | "welcome" | "papapa" | "done";
 
 export function LoginPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/deals";
-  const { isAuthenticated, isReady, creator, pendingMobileNumber, pendingHypdUsername, requestOtp, verifyOtp } =
+  const { isAuthenticated, isReady, pendingMobileNumber, pendingHypdUsername, requestOtp, verifyOtp } =
     useCreatorAuth();
   const [mobileNumber, setMobileNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [status, setStatus] = useState("Enter your HYPD registered mobile number.");
   const [otpStepReady, setOtpStepReady] = useState(false);
   const [loading, setLoading] = useState<"idle" | "otp" | "verify">("idle");
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [showPapapaPromo, setShowPapapaPromo] = useState(false);
+  const [phase, setPhase] = useState<PostLoginPhase>("none");
   const [welcomeUsername, setWelcomeUsername] = useState("");
 
+  // Only auto-redirect if user was already authenticated AND we're not in a post-login phase
   useEffect(() => {
-    if (isReady && isAuthenticated && !showWelcome && !showPapapaPromo) {
+    if (isReady && isAuthenticated && phase === "none") {
       router.replace(nextPath);
     }
-  }, [isAuthenticated, isReady, nextPath, router, showWelcome, showPapapaPromo]);
+  }, [isAuthenticated, isReady, nextPath, router, phase]);
 
-  const handleWelcomeComplete = useCallback(() => {
-    setShowWelcome(false);
-    if (shouldShowPapapaPromo()) {
-      setShowPapapaPromo(true);
-    } else {
+  // Navigate away when done
+  useEffect(() => {
+    if (phase === "done") {
       router.replace(nextPath);
     }
-  }, [nextPath, router]);
+  }, [phase, nextPath, router]);
+
+  function handleWelcomeComplete() {
+    if (shouldShowPapapaPromo()) {
+      setPhase("papapa");
+    } else {
+      setPhase("done");
+    }
+  }
 
   function handlePapapaClose() {
-    setShowPapapaPromo(false);
-    router.replace(nextPath);
+    setPhase("done");
   }
 
   async function handleRequestOtp() {
@@ -56,15 +63,15 @@ export function LoginPanel() {
     setLoading("idle");
     if (result.ok) {
       setWelcomeUsername(result.username ?? pendingHypdUsername ?? "creator");
-      setShowWelcome(true);
+      setPhase("welcome");
     }
   }
 
-  if (showWelcome) {
+  if (phase === "welcome") {
     return <WelcomeScreen username={welcomeUsername} onComplete={handleWelcomeComplete} />;
   }
 
-  if (showPapapaPromo) {
+  if (phase === "papapa") {
     return <PapapaPromo onClose={handlePapapaClose} />;
   }
 

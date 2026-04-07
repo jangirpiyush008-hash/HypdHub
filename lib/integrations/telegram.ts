@@ -33,7 +33,7 @@ type SupportedMarketplace = InternetDeal["marketplace"];
 const REFRESH_WINDOW_HOURS = 2;
 const REFRESH_WINDOW_MS = REFRESH_WINDOW_HOURS * 60 * 60 * 1000;
 const MESSAGE_LIMIT_PER_CHANNEL = 35;
-const TELEGRAM_FETCH_TIMEOUT_MS = 8_000;
+const TELEGRAM_FETCH_TIMEOUT_MS = 5_000;
 
 const telegramChannels: TelegramChannelSource[] = [
   { id: 1, url: "https://t.me/+kTvbwlaPbH1mM2E1", handle: null, title: "Offerzone 3.0", access: "readable_now", marketplaceFocus: ["Myntra", "Flipkart", "Amazon"] },
@@ -79,7 +79,8 @@ const supportedMarketplaces: SupportedMarketplace[] = [
   "Flipkart",
   "Shopsy",
   "Ajio",
-  "Nykaa"
+  "Nykaa",
+  "HYPD"
 ];
 
 function getEnv(name: string) {

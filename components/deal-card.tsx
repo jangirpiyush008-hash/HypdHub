@@ -8,7 +8,8 @@ const sourceBadges: Record<InternetDeal["marketplace"], string> = {
   Flipkart: "bg-sky-300/20 text-sky-200",
   Myntra: "bg-primary/20 text-primary",
   Nykaa: "bg-rose-300/20 text-rose-200",
-  Shopsy: "bg-emerald-300/20 text-emerald-200"
+  Shopsy: "bg-emerald-300/20 text-emerald-200",
+  HYPD: "bg-primary/20 text-primary"
 };
 
 const thumbGradients: Record<InternetDeal["marketplace"], string> = {
@@ -17,7 +18,8 @@ const thumbGradients: Record<InternetDeal["marketplace"], string> = {
   Flipkart: "from-sky-400 via-cyan-400 to-blue-500",
   Myntra: "from-primary via-fuchsia-400 to-violet-500",
   Nykaa: "from-rose-400 via-pink-400 to-orange-300",
-  Shopsy: "from-emerald-400 via-lime-400 to-green-500"
+  Shopsy: "from-emerald-400 via-lime-400 to-green-500",
+  HYPD: "from-primary via-rose-400 to-fuchsia-500"
 };
 
 function getDiscount(price: number | null, originalPrice: number | null) {
