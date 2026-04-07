@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useCreatorAuth } from "@/components/auth-provider";
+import { PapapaPromo, shouldShowPapapaPromo } from "@/components/papapa-promo";
 import { WelcomeScreen } from "@/components/welcome-screen";
 
 export function LoginPanel() {
@@ -17,18 +18,28 @@ export function LoginPanel() {
   const [otpStepReady, setOtpStepReady] = useState(false);
   const [loading, setLoading] = useState<"idle" | "otp" | "verify">("idle");
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showPapapaPromo, setShowPapapaPromo] = useState(false);
   const [welcomeUsername, setWelcomeUsername] = useState("");
 
   useEffect(() => {
-    if (isReady && isAuthenticated && !showWelcome) {
+    if (isReady && isAuthenticated && !showWelcome && !showPapapaPromo) {
       router.replace(nextPath);
     }
-  }, [isAuthenticated, isReady, nextPath, router, showWelcome]);
+  }, [isAuthenticated, isReady, nextPath, router, showWelcome, showPapapaPromo]);
 
   const handleWelcomeComplete = useCallback(() => {
     setShowWelcome(false);
-    router.replace(nextPath);
+    if (shouldShowPapapaPromo()) {
+      setShowPapapaPromo(true);
+    } else {
+      router.replace(nextPath);
+    }
   }, [nextPath, router]);
+
+  function handlePapapaClose() {
+    setShowPapapaPromo(false);
+    router.replace(nextPath);
+  }
 
   async function handleRequestOtp() {
     setLoading("otp");
@@ -51,6 +62,10 @@ export function LoginPanel() {
 
   if (showWelcome) {
     return <WelcomeScreen username={welcomeUsername} onComplete={handleWelcomeComplete} />;
+  }
+
+  if (showPapapaPromo) {
+    return <PapapaPromo onClose={handlePapapaClose} />;
   }
 
   return (
