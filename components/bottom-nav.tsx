@@ -14,7 +14,7 @@ const privateItems = [
   { href: "/deals", label: "Deals", icon: LightningIcon },
   { href: "/converter", label: "Convert", icon: LinkIcon },
   { href: "/dashboard", label: "Stats", icon: DashboardIcon },
-  { href: "/connect", label: "Connect", icon: BotIcon }
+  { href: "/connect", label: "Automate", icon: BotIcon }
 ];
 
 export function BottomNav() {
@@ -23,8 +23,8 @@ export function BottomNav() {
   const items = isAuthenticated ? privateItems : publicItems;
 
   return (
-    <nav className="glass-panel fixed inset-x-0 bottom-0 z-50 border-t border-outline/30 px-4 pb-6 pt-3 md:hidden">
-      <div className="mx-auto flex max-w-xl items-center justify-around gap-1">
+    <nav className="glass-panel fixed inset-x-0 bottom-0 z-50 border-t border-outline/20 px-4 pb-6 pt-2 md:hidden">
+      <div className="mx-auto flex max-w-xl items-center justify-around">
         {items.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
@@ -33,14 +33,14 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex min-w-16 flex-col items-center rounded-xl px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] transition-all ${
+              className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
                 active
-                  ? "scale-105 bg-cta-gradient text-white shadow-glow"
-                  : "text-muted/70 hover:text-text"
+                  ? "text-primary"
+                  : "text-muted/60 hover:text-text"
               }`}
             >
               <Icon className="h-4 w-4" />
-              <span className="mt-1">{item.label}</span>
+              <span>{item.label}</span>
             </Link>
           );
         })}

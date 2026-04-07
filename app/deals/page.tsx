@@ -1,15 +1,12 @@
 import { DealsExperience } from "@/components/deals-experience";
-import { SectionHeading } from "@/components/section-heading";
 
 export default function DealsPage() {
   return (
-    <div className="space-y-10">
-      <section className="space-y-4">
-        <SectionHeading
-          title="Curated Deals"
-          description="Browse live deals across marketplaces and HYPD-ready conversion opportunities. Login unlocks the full feed, filters, and creator tools."
-        />
-      </section>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-headline text-2xl font-bold tracking-tight text-text">Deals</h1>
+        <p className="mt-1 text-sm text-muted">Live deals from HYPD, marketplaces, and Telegram. Login unlocks full feed and tools.</p>
+      </div>
       <DealsExperience />
     </div>
   );

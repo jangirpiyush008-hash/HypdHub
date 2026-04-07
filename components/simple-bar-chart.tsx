@@ -11,86 +11,49 @@ export function SimpleBarChart() {
   const [data, setData] = useState<Record<string, InternetDeal[]>>({});
 
   useEffect(() => {
-    async function load() {
-      const response = await fetch("/api/deals");
-      const result = (await response.json()) as DealsResponse;
-      setData(result.topDealsByMarketplace ?? {});
-    }
-
-    load().catch(() => setData({}));
+    fetch("/api/deals")
+      .then((r) => r.json())
+      .then((result: DealsResponse) => setData(result.topDealsByMarketplace ?? {}))
+      .catch(() => setData({}));
   }, []);
 
   const rows = useMemo(
     () =>
       Object.entries(data).map(([marketplace, deals]) => {
-        const validated = deals.filter((deal) => deal.validationStatus === "validated").length;
-        return {
-          marketplace,
-          live: deals.length,
-          validated,
-          unverified: Math.max(0, deals.length - validated)
-        };
+        const validated = deals.filter((d) => d.validationStatus === "validated").length;
+        return { marketplace, live: deals.length, validated, unverified: Math.max(0, deals.length - validated) };
       }),
     [data]
   );
 
-  const maxValue = Math.max(1, ...rows.map((item) => item.live));
+  const maxValue = Math.max(1, ...rows.map((r) => r.live));
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-[1.5rem] bg-surface-low p-6">
-        <h3 className="font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
-          Platform activity
-        </h3>
-        <p className="mt-3 text-sm text-muted">
-          Live activity bars will appear here once the deal pipeline has enough refreshed marketplace data.
-        </p>
+      <div>
+        <h3 className="font-headline text-lg font-bold text-text">Platform Activity</h3>
+        <p className="mt-2 text-sm text-muted">No data yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h3 className="font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
-          Platform activity
-        </h3>
-        <div className="flex gap-3 text-xs font-bold uppercase tracking-[0.24em] text-muted">
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-            Live deals
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            Validated
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-sky-400" />
-            Unverified
-          </span>
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-headline text-lg font-bold text-text">Platform Activity</h3>
+        <div className="flex gap-3 text-[10px] font-bold uppercase text-muted">
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> Live</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-tertiary" /> Verified</span>
         </div>
       </div>
-
-      <div className="grid grid-cols-2 items-end gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {rows.map((item) => (
-          <div key={item.marketplace} className="space-y-2">
-            <div className="flex h-48 items-end justify-center gap-1 rounded-[1.25rem] bg-surface-low px-2 py-3">
-              <div
-                className="w-2 rounded-full bg-emerald-400/80"
-                style={{ height: `${(item.validated / maxValue) * 100}%` }}
-              />
-              <div
-                className="w-2 rounded-full bg-sky-400/80"
-                style={{ height: `${(item.unverified / maxValue) * 100}%` }}
-              />
-              <div
-                className="w-2 rounded-full bg-cta-gradient"
-                style={{ height: `${(item.live / maxValue) * 100}%` }}
-              />
+      <div className="mt-4 grid grid-cols-3 items-end gap-2 lg:grid-cols-6">
+        {rows.map((r) => (
+          <div key={r.marketplace} className="space-y-1">
+            <div className="flex h-32 items-end justify-center gap-0.5 rounded-lg bg-surface-high px-2 py-2">
+              <div className="w-2 rounded-full bg-tertiary" style={{ height: `${(r.validated / maxValue) * 100}%` }} />
+              <div className="w-2 rounded-full bg-primary" style={{ height: `${(r.live / maxValue) * 100}%` }} />
             </div>
-            <p className="text-center text-[10px] font-bold uppercase tracking-[0.18em] text-muted">
-              {item.marketplace}
-            </p>
+            <p className="text-center text-[9px] font-bold uppercase text-muted">{r.marketplace}</p>
           </div>
         ))}
       </div>

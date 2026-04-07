@@ -11,48 +11,42 @@ export function DashboardLiveQueue() {
   const [deals, setDeals] = useState<InternetDeal[]>([]);
 
   useEffect(() => {
-    async function load() {
-      const response = await fetch("/api/deals");
-      const result = (await response.json()) as QueueResponse;
-      const flattened = Object.values(result.topDealsByMarketplace)
-        .flat()
-        .sort((left, right) => right.score - left.score)
-        .slice(0, 6);
-      setDeals(flattened);
-    }
-
-    load().catch(() => setDeals([]));
+    fetch("/api/deals")
+      .then((r) => r.json())
+      .then((result: QueueResponse) => {
+        setDeals(
+          Object.values(result.topDealsByMarketplace)
+            .flat()
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 6)
+        );
+      })
+      .catch(() => setDeals([]));
   }, []);
 
   if (deals.length === 0) {
-    return (
-      <div className="rounded-[1.4rem] bg-surface-low p-5 text-sm text-muted">
-        No live queue items are available yet.
-      </div>
-    );
+    return <div className="rounded-xl bg-surface-card p-5 text-sm text-muted">No live queue items yet.</div>;
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {deals.map((deal, index) => (
-        <article key={deal.id} className="rounded-[1.35rem] bg-surface-low p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Queue #{index + 1}</p>
-              <h3 className="mt-2 font-headline text-xl font-bold tracking-[-0.03em] text-text">
-                {deal.title}
-              </h3>
-              <p className="mt-2 text-sm text-muted">{deal.marketplace} • {deal.category}</p>
+    <div className="rounded-xl bg-surface-card p-5">
+      <h3 className="font-headline text-lg font-bold text-text">Live Queue</h3>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {deals.map((deal, i) => (
+          <div key={deal.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface-high px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-text line-clamp-1">{deal.title}</p>
+              <p className="text-xs text-muted">{deal.marketplace} · {deal.category}</p>
             </div>
-            <div className="text-right">
-              <p className="font-headline text-2xl font-extrabold tracking-[-0.04em] text-text">
-                {deal.currentPrice ? `₹${deal.currentPrice.toLocaleString("en-IN")}` : "N/A"}
+            <div className="text-right shrink-0">
+              <p className="font-headline text-sm font-bold text-text">
+                {deal.currentPrice ? `₹${deal.currentPrice.toLocaleString("en-IN")}` : "—"}
               </p>
-              <p className="text-xs uppercase tracking-[0.24em] text-primary">Confidence {deal.confidenceScore ?? 0}</p>
+              <p className="text-[10px] text-primary">#{i + 1}</p>
             </div>
           </div>
-        </article>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

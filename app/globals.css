@@ -2,48 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800;900&display=swap');
+
 :root {
-  color-scheme: light;
-  --surface: 250 247 251;
-  --surface-low: 245 240 248;
-  --surface-card: 255 255 255;
-  --surface-high: 248 243 250;
-  --surface-top: 239 232 244;
-  --surface-bright: 231 221 239;
-  --primary: 230 78 189;
-  --primary-deep: 138 35 135;
-  --secondary: 255 179 181;
-  --tertiary: 255 182 146;
-  --text: 30 24 38;
-  --muted: 112 98 126;
-  --outline: 217 208 226;
-  --page-glow-a: rgba(255, 124, 214, 0.16);
-  --page-glow-b: rgba(138, 35, 135, 0.08);
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --selection-bg: rgba(230, 78, 189, 0.18);
-  --selection-text: rgb(31, 25, 39);
+  color-scheme: dark;
+  --surface: 13 13 13;
+  --surface-low: 18 18 20;
+  --surface-card: 24 24 28;
+  --surface-high: 34 34 38;
+  --surface-top: 44 44 48;
+  --surface-bright: 58 58 62;
+  --primary: 251 108 35;
+  --primary-deep: 233 64 87;
+  --secondary: 156 97 253;
+  --tertiary: 35 209 135;
+  --accent-blue: 33 129 251;
+  --text: 240 240 242;
+  --muted: 160 160 170;
+  --outline: 60 60 68;
+  --page-glow-a: rgba(251, 108, 35, 0.08);
+  --page-glow-b: rgba(138, 35, 135, 0.06);
+  --glass-bg: rgba(24, 24, 28, 0.72);
+  --selection-bg: rgba(251, 108, 35, 0.25);
+  --selection-text: rgb(251, 108, 35);
 }
 
-[data-theme="dark"] {
-  color-scheme: dark;
-  --surface: 19 19 22;
-  --surface-low: 27 27 30;
-  --surface-card: 31 31 34;
-  --surface-high: 42 42 45;
-  --surface-top: 53 52 56;
-  --surface-bright: 57 57 60;
-  --primary: 255 171 243;
+[data-theme="light"] {
+  color-scheme: light;
+  --surface: 248 248 250;
+  --surface-low: 242 242 245;
+  --surface-card: 255 255 255;
+  --surface-high: 238 238 242;
+  --surface-top: 230 230 235;
+  --surface-bright: 220 220 226;
+  --primary: 233 64 87;
   --primary-deep: 138 35 135;
-  --secondary: 255 179 181;
-  --tertiary: 255 182 146;
-  --text: 228 225 230;
-  --muted: 214 193 207;
-  --outline: 81 66 78;
-  --page-glow-a: rgba(255, 171, 243, 0.08);
-  --page-glow-b: rgba(138, 35, 135, 0.12);
-  --glass-bg: rgba(31, 31, 34, 0.64);
-  --selection-bg: rgba(255, 171, 243, 0.30);
-  --selection-text: rgb(255, 171, 243);
+  --secondary: 156 97 253;
+  --tertiary: 35 209 135;
+  --accent-blue: 33 129 251;
+  --text: 20 20 24;
+  --muted: 100 100 112;
+  --outline: 210 210 218;
+  --page-glow-a: rgba(233, 64, 87, 0.06);
+  --page-glow-b: rgba(242, 113, 33, 0.04);
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --selection-bg: rgba(233, 64, 87, 0.15);
+  --selection-text: rgb(233, 64, 87);
 }
 
 html {
@@ -53,45 +57,23 @@ html {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top right, var(--page-glow-a), transparent 24%),
-    radial-gradient(circle at bottom left, var(--page-glow-b), transparent 22%),
+    radial-gradient(ellipse at top right, var(--page-glow-a), transparent 40%),
+    radial-gradient(ellipse at bottom left, var(--page-glow-b), transparent 30%),
     rgb(var(--surface));
   color: rgb(var(--text));
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: "Urbanist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .font-headline {
-  font-family:
-    "Plus Jakarta Sans",
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: "Urbanist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .font-body {
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: "Urbanist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * {
-  border-color: rgb(var(--outline) / 0.32);
+  border-color: rgb(var(--outline) / 0.25);
 }
 
 ::selection {
@@ -131,7 +113,7 @@ body {
   height: 2px;
   transform: translateX(-50%);
   border-radius: 9999px;
-  background: linear-gradient(135deg, #ffabf3 0%, #8a2387 100%);
+  background: linear-gradient(135deg, #fb6c23 0%, #e94057 50%, #8a2387 100%);
   transition: width 180ms ease;
 }
 
@@ -147,10 +129,17 @@ body {
 }
 
 .card-hover:hover {
-  transform: translateY(-2px) scale(1.015);
-  box-shadow: 0 24px 48px rgba(85, 37, 89, 0.12), 0 0 20px rgba(255, 171, 243, 0.16);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 16px 40px rgba(251, 108, 35, 0.08), 0 0 16px rgba(233, 64, 87, 0.06);
 }
 
 .thin-mask {
   mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+}
+
+.hypd-gradient-text {
+  background: linear-gradient(20deg, #8a2387, #e94057, #f27121);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
