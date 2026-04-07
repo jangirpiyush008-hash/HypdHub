@@ -25,13 +25,25 @@ export function SiteHeader() {
   return (
     <header className="glass-panel fixed inset-x-0 top-0 z-50 border-b border-outline/20">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link
-          href={isAuthenticated ? "/deals" : "/"}
-          className="font-headline text-xl font-black tracking-tight"
-        >
-          <span className="hypd-gradient-text">HYPD</span>
-          <span className="text-text/60"> Hub</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href={isAuthenticated ? "/deals" : "/"}
+            className="font-headline text-xl font-black tracking-tight"
+          >
+            <span className="hypd-gradient-text">HYPD</span>
+            <span className="text-text/60"> Hub</span>
+          </Link>
+
+          {/* Papapa button */}
+          <a
+            href="https://getpapapa.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden items-center gap-1 rounded-full bg-tertiary/15 px-2.5 py-1 text-[10px] font-bold text-tertiary transition-colors hover:bg-tertiary/25 sm:inline-flex"
+          >
+            <span>Shop Papapa</span>
+          </a>
+        </div>
 
         <nav className="hidden items-center gap-1 md:flex">
           {links.map((link) => {

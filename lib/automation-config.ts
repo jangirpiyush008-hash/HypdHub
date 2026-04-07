@@ -17,6 +17,10 @@ export type BaseAutomation = {
   autoForwardEnabled: boolean;
   autoPostingEnabled: boolean;
   enabled: boolean;
+  startPostText: string;
+  endPostText: string;
+  blacklistTexts: string[];
+  replaceTexts: Array<{ find: string; replace: string }>;
 };
 
 export type TelegramAutomation = BaseAutomation & {
@@ -64,6 +68,10 @@ export function createTelegramAutomation(): TelegramAutomation {
     autoForwardEnabled: true,
     autoPostingEnabled: false,
     enabled: true,
+    startPostText: "",
+    endPostText: "",
+    blacklistTexts: [],
+    replaceTexts: [],
     botToken: "",
     botUsername: OFFICIAL_HYPD_BOT_USERNAME,
     destinationChannelUsername: "",
@@ -85,6 +93,10 @@ export function createWhatsAppAutomation(): WhatsAppAutomation {
     autoForwardEnabled: true,
     autoPostingEnabled: false,
     enabled: true,
+    startPostText: "",
+    endPostText: "",
+    blacklistTexts: [],
+    replaceTexts: [],
     businessName: "",
     businessNumber: "",
     phoneNumberId: "",

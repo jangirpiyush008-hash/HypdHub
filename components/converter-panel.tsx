@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useCreatorAuth } from "@/components/auth-provider";
 import { CopyIcon, LinkIcon } from "@/components/icons";
 import { HypdConversionResult, generateHypdConversion } from "@/lib/hypd-links";
@@ -35,10 +35,6 @@ export function ConverterPanel() {
 
   const csvContent = useMemo(() => buildCsv(bulkResults), [bulkResults]);
 
-  useEffect(() => {
-    setOutput(generateHypdConversion(url, username));
-  }, [url, username]);
-
   async function convertSingle(sourceUrl: string) {
     const res = await fetch("/api/hypd/convert", {
       method: "POST",
@@ -52,14 +48,18 @@ export function ConverterPanel() {
 
   async function handleConvert() {
     if (!isAuthenticated) { setStatus("Login first."); return; }
+    if (!url.trim()) return;
     setIsConverting(true);
+    setOutput(null);
     try {
       const result = await convertSingle(url);
       setOutput(result);
       setStatus(`Converted: ${result.marketplace}`);
     } catch (e) {
-      setOutput(generateHypdConversion(url, username));
-      setStatus(e instanceof Error ? e.message : "Conversion failed.");
+      // Fallback to local generation only on API failure
+      const fallback = generateHypdConversion(url, username);
+      setOutput(fallback);
+      setStatus(e instanceof Error ? e.message : "API failed, showing local conversion.");
     } finally { setIsConverting(false); }
   }
 
@@ -84,10 +84,9 @@ export function ConverterPanel() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      // Extract URLs from CSV — assume first column or any column with http
       const urls = text
         .split("\n")
-        .slice(1) // skip header
+        .slice(1)
         .map((line) => {
           const match = line.match(/https?:\/\/[^\s,"]+/);
           return match ? match[0] : "";
@@ -108,12 +107,12 @@ export function ConverterPanel() {
 
   function downloadCsv() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const u = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
+    a.href = u;
     a.download = "hypd-converted-links.csv";
     a.click();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(u);
   }
 
   return (
@@ -146,7 +145,7 @@ export function ConverterPanel() {
               <LinkIcon className="h-4 w-4 text-primary" />
               <input
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => { setUrl(e.target.value); setOutput(null); }}
                 placeholder="Paste Myntra, Flipkart, Meesho, Shopsy, Nykaa, or Ajio URL"
                 className="w-full bg-transparent text-sm text-text outline-none placeholder:text-muted/50"
               />
@@ -169,9 +168,13 @@ export function ConverterPanel() {
                 {copied ? "Copied!" : "Copy Link"}
               </button>
             </div>
+
+            {!isAuthenticated ? (
+              <p className="mt-3 text-xs text-muted">Login with your HYPD account to convert links.</p>
+            ) : null}
           </div>
 
-          {/* Output */}
+          {/* Output — only shown after actual conversion */}
           {output?.shortLink ? (
             <div className="rounded-xl bg-surface-card p-5">
               <div className="space-y-3">
@@ -194,7 +197,6 @@ export function ConverterPanel() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Bulk input */}
           <div className="rounded-xl bg-surface-card p-5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-text">Paste URLs or upload CSV</p>
@@ -240,7 +242,6 @@ export function ConverterPanel() {
             </div>
           </div>
 
-          {/* Results */}
           {bulkResults.length > 0 ? (
             <div className="rounded-xl bg-surface-card p-5">
               <p className="text-sm font-semibold text-text">{bulkResults.length} converted</p>
@@ -261,10 +262,7 @@ export function ConverterPanel() {
         </div>
       )}
 
-      {/* Status bar */}
-      {status ? (
-        <p className="text-xs text-muted">{status}</p>
-      ) : null}
+      {status ? <p className="text-xs text-muted">{status}</p> : null}
     </div>
   );
 }
