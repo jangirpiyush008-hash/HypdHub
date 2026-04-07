@@ -1,26 +1,34 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useCreatorAuth } from "@/components/auth-provider";
+import { WelcomeScreen } from "@/components/welcome-screen";
 
 export function LoginPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/deals";
-  const { isAuthenticated, isReady, pendingMobileNumber, pendingHypdUsername, requestOtp, verifyOtp } =
+  const { isAuthenticated, isReady, creator, pendingMobileNumber, pendingHypdUsername, requestOtp, verifyOtp } =
     useCreatorAuth();
   const [mobileNumber, setMobileNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [status, setStatus] = useState("Enter your HYPD registered mobile number.");
   const [otpStepReady, setOtpStepReady] = useState(false);
   const [loading, setLoading] = useState<"idle" | "otp" | "verify">("idle");
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeUsername, setWelcomeUsername] = useState("");
 
   useEffect(() => {
-    if (isReady && isAuthenticated) {
+    if (isReady && isAuthenticated && !showWelcome) {
       router.replace(nextPath);
     }
-  }, [isAuthenticated, isReady, nextPath, router]);
+  }, [isAuthenticated, isReady, nextPath, router, showWelcome]);
+
+  const handleWelcomeComplete = useCallback(() => {
+    setShowWelcome(false);
+    router.replace(nextPath);
+  }, [nextPath, router]);
 
   async function handleRequestOtp() {
     setLoading("otp");
@@ -35,7 +43,14 @@ export function LoginPanel() {
     const result = await verifyOtp(otp);
     setStatus(result.message);
     setLoading("idle");
-    if (result.ok) router.replace(nextPath);
+    if (result.ok) {
+      setWelcomeUsername(creator?.hypdUsername ?? pendingHypdUsername ?? "creator");
+      setShowWelcome(true);
+    }
+  }
+
+  if (showWelcome) {
+    return <WelcomeScreen username={welcomeUsername} onComplete={handleWelcomeComplete} />;
   }
 
   return (

@@ -212,13 +212,115 @@ function AutomationCard({ automation, index, onChange, onRemove }: {
         {/* Advanced — collapsed */}
         <details className="rounded-lg bg-surface-high p-3">
           <summary className="cursor-pointer text-sm font-semibold text-text">Advanced Settings</summary>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <Field label="Posting Window" value={automation.postingWindow} placeholder="10 AM, 2 PM, 8 PM" onChange={(v) => onChange({ ...automation, postingWindow: v })} />
-            <Field label="Destination Channel ID" value={automation.destinationChannelId} placeholder="-100..." onChange={(v) => onChange({ ...automation, destinationChannelId: v })} />
-            {!isOfficial ? (
-              <Field label="Bot Token" value={automation.botToken} placeholder="BotFather token" onChange={(v) => onChange({ ...automation, botToken: v })} />
-            ) : null}
-            <Field label="Caption Template" value={automation.captionTemplate} placeholder="{title}\n{marketplace} {price}\n{link}" onChange={(v) => onChange({ ...automation, captionTemplate: v })} type="textarea" />
+          <div className="mt-3 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Posting Window" value={automation.postingWindow} placeholder="10 AM, 2 PM, 8 PM" onChange={(v) => onChange({ ...automation, postingWindow: v })} />
+              <Field label="Destination Channel ID" value={automation.destinationChannelId} placeholder="-100..." onChange={(v) => onChange({ ...automation, destinationChannelId: v })} />
+              {!isOfficial ? (
+                <Field label="Bot Token" value={automation.botToken} placeholder="BotFather token" onChange={(v) => onChange({ ...automation, botToken: v })} />
+              ) : null}
+              <Field label="Caption Template" value={automation.captionTemplate} placeholder="{title}\n{marketplace} {price}\n{link}" onChange={(v) => onChange({ ...automation, captionTemplate: v })} type="textarea" />
+            </div>
+
+            {/* Start / End post text */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field
+                label="Start Post Text"
+                value={automation.startPostText}
+                placeholder="Text added before each post"
+                onChange={(v) => onChange({ ...automation, startPostText: v })}
+                type="textarea"
+              />
+              <Field
+                label="End Post Text"
+                value={automation.endPostText}
+                placeholder="Text added after each post"
+                onChange={(v) => onChange({ ...automation, endPostText: v })}
+                type="textarea"
+              />
+            </div>
+
+            {/* Blacklist texts */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted">Blacklist Text</span>
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...automation, blacklistTexts: [...automation.blacklistTexts, ""] })}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  + Add Field
+                </button>
+              </div>
+              <p className="text-[10px] text-muted/60">Posts containing these texts will be skipped.</p>
+              {automation.blacklistTexts.map((txt, bi) => (
+                <div key={bi} className="flex gap-2">
+                  <input
+                    value={txt}
+                    onChange={(e) => {
+                      const next = [...automation.blacklistTexts];
+                      next[bi] = e.target.value;
+                      onChange({ ...automation, blacklistTexts: next });
+                    }}
+                    placeholder="Enter blacklist text"
+                    className="flex-1 rounded-lg bg-surface-card px-3 py-2 text-sm text-text outline-none placeholder:text-muted/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...automation, blacklistTexts: automation.blacklistTexts.filter((_, j) => j !== bi) })}
+                    className="rounded-lg bg-surface-card px-2 text-xs text-muted hover:text-text"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Replace texts */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted">Replace Text</span>
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...automation, replaceTexts: [...automation.replaceTexts, { find: "", replace: "" }] })}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  + Add Rule
+                </button>
+              </div>
+              <p className="text-[10px] text-muted/60">Find and replace text in forwarded posts.</p>
+              {automation.replaceTexts.map((rule, ri) => (
+                <div key={ri} className="flex gap-2">
+                  <input
+                    value={rule.find}
+                    onChange={(e) => {
+                      const next = [...automation.replaceTexts];
+                      next[ri] = { ...next[ri], find: e.target.value };
+                      onChange({ ...automation, replaceTexts: next });
+                    }}
+                    placeholder="Find text"
+                    className="flex-1 rounded-lg bg-surface-card px-3 py-2 text-sm text-text outline-none placeholder:text-muted/50"
+                  />
+                  <input
+                    value={rule.replace}
+                    onChange={(e) => {
+                      const next = [...automation.replaceTexts];
+                      next[ri] = { ...next[ri], replace: e.target.value };
+                      onChange({ ...automation, replaceTexts: next });
+                    }}
+                    placeholder="Replace with"
+                    className="flex-1 rounded-lg bg-surface-card px-3 py-2 text-sm text-text outline-none placeholder:text-muted/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...automation, replaceTexts: automation.replaceTexts.filter((_, j) => j !== ri) })}
+                    className="rounded-lg bg-surface-card px-2 text-xs text-muted hover:text-text"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </details>
 
