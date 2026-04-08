@@ -35,6 +35,7 @@ function hypdProductsToDeals(hypd: Awaited<ReturnType<typeof fetchHypdProducts>>
     originalUrl: p.productUrl ?? "",
     title: p.title,
     category: p.brandName || "HYPD Store",
+    imageUrl: p.imageUrl ?? null,
     currentPrice: null,
     originalPrice: null,
     discountPercent: null,

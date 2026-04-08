@@ -131,15 +131,19 @@ export function LoginPanel() {
       </div>
 
       {/* Status */}
-      <div className="mt-4 rounded-lg bg-surface-card p-4">
-        <p className="text-sm text-muted">{status}</p>
-        {pendingMobileNumber ? (
-          <p className="mt-2 text-xs font-semibold text-primary">
+      {status && !pendingMobileNumber ? (
+        <div className="mt-4 rounded-lg bg-surface-card p-4">
+          <p className="text-sm text-muted">{status}</p>
+        </div>
+      ) : null}
+      {pendingMobileNumber ? (
+        <div className="mt-4 rounded-lg bg-surface-card p-4">
+          <p className="text-xs font-semibold text-primary">
             OTP sent to {pendingMobileNumber}
             {pendingHypdUsername ? ` · @${pendingHypdUsername}` : ""}
           </p>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -32,6 +32,7 @@ export type InternetDeal = {
   originalUrl: string;
   title: string;
   category: string;
+  imageUrl?: string | null;
   currentPrice: number | null;
   originalPrice: number | null;
   discountPercent: number | null;
