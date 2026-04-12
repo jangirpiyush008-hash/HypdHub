@@ -55,27 +55,83 @@ const PRICE_RANGES = [
   { label: "₹5K+", min: 5000, max: 999999 },
 ];
 
-function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string; marketplace?: string }) {
-  const [failed, setFailed] = useState(false);
+// Marketplace brand colors and logos (inline SVG data URIs so they never break)
+const MARKETPLACE_BRANDING: Record<string, { color: string; bg: string; logo: string }> = {
+  Myntra: {
+    color: "#ff3f6c",
+    bg: "#fff0f3",
+    logo: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="16" fill="#ff3f6c"/><text x="50" y="68" font-family="Arial,sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">M</text></svg>')}`,
+  },
+  Amazon: {
+    color: "#ff9900",
+    bg: "#fff8ee",
+    logo: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="16" fill="#232f3e"/><text x="50" y="68" font-family="Arial,sans-serif" font-size="48" font-weight="bold" fill="#ff9900" text-anchor="middle">a</text></svg>')}`,
+  },
+  Flipkart: {
+    color: "#2874f0",
+    bg: "#eef4ff",
+    logo: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="16" fill="#2874f0"/><text x="50" y="68" font-family="Arial,sans-serif" font-size="48" font-weight="bold" fill="#ffe500" text-anchor="middle">F</text></svg>')}`,
+  },
+  Ajio: {
+    color: "#3b3b3b",
+    bg: "#f5f5f5",
+    logo: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="16" fill="#3b3b3b"/><text x="50" y="68" font-family="Arial,sans-serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle">AJIO</text></svg>')}`,
+  },
+  Nykaa: {
+    color: "#fc2779",
+    bg: "#fff0f6",
+    logo: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="16" fill="#fc2779"/><text x="50" y="68" font-family="Arial,sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">N</text></svg>')}`,
+  },
+  Shopsy: {
+    color: "#7b2ff7",
+    bg: "#f3eeff",
+    logo: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="16" fill="#7b2ff7"/><text x="50" y="68" font-family="Arial,sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">S</text></svg>')}`,
+  },
+  HYPD: {
+    color: "#fb6c23",
+    bg: "#fff4ee",
+    logo: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="16" fill="#fb6c23"/><text x="50" y="68" font-family="Arial,sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">H</text></svg>')}`,
+  },
+};
 
-  const placeholder = (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-lg bg-gradient-to-br from-surface-high to-surface-bright">
-      <span className="text-2xl font-bold text-primary/50">{(marketplace ?? alt).charAt(0)}</span>
-      <span className="text-[10px] text-muted">{marketplace ?? "Deal"}</span>
+function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string; marketplace: string }) {
+  const [failed, setFailed] = useState(false);
+  const branding = MARKETPLACE_BRANDING[marketplace] ?? MARKETPLACE_BRANDING.HYPD;
+
+  // Fallback: marketplace logo with product name
+  const fallback = (
+    <div
+      className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg p-3"
+      style={{ backgroundColor: branding.bg }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={branding.logo} alt={marketplace} className="h-10 w-10 rounded-lg" />
+      <span className="line-clamp-2 text-center text-[11px] font-semibold" style={{ color: branding.color }}>
+        {alt}
+      </span>
     </div>
   );
 
-  if (!src || failed) return placeholder;
+  if (!src || failed) return fallback;
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      className="h-full w-full rounded-lg object-contain bg-white"
-      onError={() => setFailed(true)}
-    />
+    <div className="relative h-full w-full rounded-lg bg-white">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        className="h-full w-full rounded-lg object-contain p-1"
+        onError={() => setFailed(true)}
+      />
+      {/* Small marketplace logo badge on product image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={branding.logo}
+        alt={marketplace}
+        className="absolute bottom-1.5 right-1.5 h-5 w-5 rounded shadow-sm"
+      />
+    </div>
   );
 }
 
@@ -144,24 +200,29 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
     <div className="space-y-4">
       {/* ── Filter Header ── */}
       <div className="rounded-xl bg-surface-card p-4 space-y-3">
-        {/* Marketplace tabs */}
+        {/* Marketplace tabs with logos */}
         <div className="hide-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {ALL_MARKETPLACES.map((m) => {
             const isActive = selectedMarketplace === m;
             const count = m === "All" ? allDeals.length : (marketplaceCounts[m] || 0);
+            const branding = m !== "All" ? MARKETPLACE_BRANDING[m] : null;
             return (
               <button
                 key={m}
                 onClick={() => setSelectedMarketplace(m)}
-                className={`flex-shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition-all ${
+                className={`flex-shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all ${
                   isActive
                     ? "bg-primary text-white shadow-sm"
                     : "bg-surface-high text-muted hover:bg-surface-bright hover:text-text"
                 }`}
               >
+                {branding && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={branding.logo} alt={m} className="h-4 w-4 rounded" />
+                )}
                 {m}
                 {count > 0 && (
-                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                     isActive ? "bg-white/20 text-white" : "bg-surface-card text-muted"
                   }`}>
                     {count}
@@ -215,16 +276,22 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredDeals.map((deal) => {
             const href = getExternalHref(deal);
+            const branding = MARKETPLACE_BRANDING[deal.marketplace] ?? MARKETPLACE_BRANDING.HYPD;
             return (
               <div key={deal.id} className="card-hover rounded-xl bg-surface-card p-3 flex flex-col">
-                {/* Product image */}
-                <div className="h-32 w-full overflow-hidden rounded-lg">
+                {/* Product image / marketplace logo fallback */}
+                <div className="h-36 w-full overflow-hidden rounded-lg">
                   <DealImage src={deal.imageUrl} alt={deal.title} marketplace={deal.marketplace} />
                 </div>
 
                 {/* Marketplace badge */}
                 <div className="mt-2 flex items-center gap-2">
-                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                  <span
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold"
+                    style={{ backgroundColor: branding.bg, color: branding.color }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={branding.logo} alt="" className="h-3 w-3 rounded-sm" />
                     {deal.marketplace}
                   </span>
                   {deal.category && deal.category !== "General" && (
@@ -252,15 +319,18 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
                   ) : null}
                 </div>
 
-                {/* View Deal button */}
+                {/* View Deal button — styled per marketplace */}
                 {href ? (
                   <a
                     href={href}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 block rounded-lg bg-primary/10 py-2 text-center text-xs font-bold text-primary transition-colors hover:bg-primary/20"
+                    className="mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-colors hover:opacity-80"
+                    style={{ backgroundColor: branding.bg, color: branding.color }}
                   >
-                    View Deal →
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={branding.logo} alt="" className="h-4 w-4 rounded" />
+                    View on {deal.marketplace} →
                   </a>
                 ) : null}
               </div>
