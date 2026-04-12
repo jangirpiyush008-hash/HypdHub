@@ -7,6 +7,11 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "HYPD Hub — Creator Deal Platform",
   description: "Discover deals, convert HYPD affiliate links, and automate distribution across Telegram and WhatsApp.",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
   verification: {
     google: "UEijPBrz56PQu15K5MonGNIXpUVtixpR9Vc9U3PEYoA"
   }

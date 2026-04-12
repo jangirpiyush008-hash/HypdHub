@@ -55,22 +55,26 @@ const PRICE_RANGES = [
   { label: "₹5K+", min: 5000, max: 999999 },
 ];
 
-function DealImage({ src, alt }: { src?: string | null; alt: string }) {
-  if (!src) {
-    return (
-      <div className="flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20">
-        <span className="text-lg font-bold text-primary/40">{alt.charAt(0)}</span>
-      </div>
-    );
-  }
+function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string; marketplace?: string }) {
+  const [failed, setFailed] = useState(false);
+
+  const placeholder = (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-lg bg-gradient-to-br from-surface-high to-surface-bright">
+      <span className="text-2xl font-bold text-primary/50">{(marketplace ?? alt).charAt(0)}</span>
+      <span className="text-[10px] text-muted">{marketplace ?? "Deal"}</span>
+    </div>
+  );
+
+  if (!src || failed) return placeholder;
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}
       loading="lazy"
-      className="h-full w-full rounded-lg object-cover"
-      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+      className="h-full w-full rounded-lg object-contain bg-white"
+      onError={() => setFailed(true)}
     />
   );
 }
@@ -215,7 +219,7 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
               <div key={deal.id} className="card-hover rounded-xl bg-surface-card p-3 flex flex-col">
                 {/* Product image */}
                 <div className="h-32 w-full overflow-hidden rounded-lg">
-                  <DealImage src={deal.imageUrl} alt={deal.title} />
+                  <DealImage src={deal.imageUrl} alt={deal.title} marketplace={deal.marketplace} />
                 </div>
 
                 {/* Marketplace badge */}
