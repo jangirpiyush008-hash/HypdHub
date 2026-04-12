@@ -10,7 +10,7 @@
  */
 
 import { InternetDeal } from "@/lib/types";
-import { humanFetch, humanNavigate, tryStrategies, getRandomProfile } from "./human-agent";
+import { humanFetch, humanNavigate, humanDeepNavigate, tryStrategies, getRandomProfile } from "./human-agent";
 
 type Marketplace = InternetDeal["marketplace"];
 
@@ -189,23 +189,21 @@ export async function scrapeMyntra(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function flipkartStrategy1(): Promise<InternetDeal[]> {
-  // Navigate to deals page with full browser simulation
-  const res = await humanNavigate(
+  // Deep navigation: home → deals (like a real user browsing)
+  const res = await humanDeepNavigate([
     "https://www.flipkart.com/",
     "https://www.flipkart.com/deals-of-the-day",
-    { delayMs: [300, 800] }
-  );
+  ]);
   if (!res.ok) return [];
   return parseFlipkartHtml(res.text, "https://www.flipkart.com/deals-of-the-day");
 }
 
 async function flipkartStrategy2(): Promise<InternetDeal[]> {
-  // Offers store
-  const profile = getRandomProfile();
-  const res = await humanFetch({
-    url: "https://www.flipkart.com/offers-store",
-    profile,
-  });
+  // Deep navigation: home → offers store
+  const res = await humanDeepNavigate([
+    "https://www.flipkart.com/",
+    "https://www.flipkart.com/offers-store",
+  ]);
   if (!res.ok) return [];
   return parseFlipkartHtml(res.text, "https://www.flipkart.com/offers-store");
 }
@@ -465,10 +463,13 @@ export async function scrapeAmazon(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function ajioStrategy1(): Promise<InternetDeal[]> {
-  // Internal category API with session
-  const res = await humanNavigate(
-    "https://www.ajio.com/",
-    "https://www.ajio.com/api/category/830216001?currentPage=0&pageSize=20&sort=discount-desc",
+  // Deep navigation: home → sale → API (full session buildup)
+  const res = await humanDeepNavigate(
+    [
+      "https://www.ajio.com/",
+      "https://www.ajio.com/sale",
+      "https://www.ajio.com/api/category/830216001?currentPage=0&pageSize=20&sort=discount-desc",
+    ],
     { extraHeaders: { "x-requested-with": "XMLHttpRequest" }, acceptJson: true }
   );
   if (!res.ok) return [];
@@ -476,18 +477,18 @@ async function ajioStrategy1(): Promise<InternetDeal[]> {
 }
 
 async function ajioStrategy2(): Promise<InternetDeal[]> {
-  // Different category
-  const res = await humanFetch({
-    url: "https://www.ajio.com/api/category/830216001?currentPage=0&pageSize=20&sort=newn",
-    acceptJson: true,
-    extraHeaders: { "x-requested-with": "XMLHttpRequest" },
-  });
+  // Navigate home → API
+  const res = await humanNavigate(
+    "https://www.ajio.com/",
+    "https://www.ajio.com/api/category/830216001?currentPage=0&pageSize=20&sort=newn",
+    { extraHeaders: { "x-requested-with": "XMLHttpRequest" }, acceptJson: true }
+  );
   if (!res.ok) return [];
   return parseAjioJson(res.text);
 }
 
 async function ajioStrategy3(): Promise<InternetDeal[]> {
-  // Sale page API
+  // Navigate sale → API
   const res = await humanNavigate(
     "https://www.ajio.com/sale",
     "https://www.ajio.com/api/category/830216001?currentPage=0&pageSize=20&sort=price-asc",
@@ -534,33 +535,32 @@ export async function scrapeAjio(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function nykaaStrategy1(): Promise<InternetDeal[]> {
-  // Nykaa internal product listing API
-  const res = await humanNavigate(
+  // Deep navigation: home → deals page (full session with cookies)
+  const res = await humanDeepNavigate([
     "https://www.nykaa.com/",
     "https://www.nykaa.com/sp/deals-page/deals",
-    { delayMs: [200, 500] }
-  );
+  ]);
   if (!res.ok) return [];
   return parseNykaaHtml(res.text);
 }
 
 async function nykaaStrategy2(): Promise<InternetDeal[]> {
-  // Nykaa bestsellers
-  const res = await humanFetch({
-    url: "https://www.nykaa.com/sp/offer-page/offers",
-  });
+  // Deep navigation: home → offers
+  const res = await humanDeepNavigate([
+    "https://www.nykaa.com/",
+    "https://www.nykaa.com/sp/offer-page/offers",
+  ]);
   if (!res.ok) return [];
   return parseNykaaHtml(res.text);
 }
 
 async function nykaaStrategy3(): Promise<InternetDeal[]> {
-  // Nykaa product search API
-  const res = await humanFetch({
-    url: "https://www.nykaa.com/search/result/?q=bestseller&root=search&searchType=Manual&sourcepage=listing&p=0&category_filter=&type=product",
-    acceptJson: true,
-    extraHeaders: { "x-requested-with": "XMLHttpRequest" },
-    referer: "https://www.nykaa.com/",
-  });
+  // Deep navigation: home → search (with XHR headers)
+  const res = await humanNavigate(
+    "https://www.nykaa.com/",
+    "https://www.nykaa.com/search/result/?q=bestseller&root=search&searchType=Manual&sourcepage=listing&p=0&category_filter=&type=product",
+    { acceptJson: true, extraHeaders: { "x-requested-with": "XMLHttpRequest" } }
+  );
   if (!res.ok) return [];
   try {
     const json = JSON.parse(res.text);
@@ -641,21 +641,21 @@ export async function scrapeNykaa(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function shopsyStrategy1(): Promise<InternetDeal[]> {
-  const res = await humanNavigate(
+  // Deep navigation: home → deals
+  const res = await humanDeepNavigate([
     "https://www.shopsy.in/",
     "https://www.shopsy.in/deals",
-    { delayMs: [200, 500] }
-  );
+  ]);
   if (!res.ok) return [];
   return parseShopsyHtml(res.text);
 }
 
 async function shopsyStrategy2(): Promise<InternetDeal[]> {
-  const profile = getRandomProfile();
-  const res = await humanFetch({
-    url: "https://www.shopsy.in/all-offers",
-    profile,
-  });
+  // Deep navigation: home → all-offers
+  const res = await humanDeepNavigate([
+    "https://www.shopsy.in/",
+    "https://www.shopsy.in/all-offers",
+  ]);
   if (!res.ok) return [];
   return parseShopsyHtml(res.text);
 }
