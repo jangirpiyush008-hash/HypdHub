@@ -372,33 +372,73 @@ async function amazonStrategy3(): Promise<InternetDeal[]> {
 
 function parseAmazonHtml(html: string, pageUrl: string): InternetDeal[] {
   const deals: InternetDeal[] = [];
+  const seenTitles = new Set<string>();
 
-  // Pattern 1: img with Amazon CDN + nearby price
-  const cardPattern = /<img[^>]+src=["'](https:\/\/[^"']*(?:images-amazon|media-amazon|m\.media-amazon)[^"']+)["'][^>]*alt=["']([^"']{5,120})["'][^>]*>[\s\S]{0,3000}?₹\s*([0-9][0-9,]{1,8})/gi;
-  for (const m of html.matchAll(cardPattern)) {
-    const imageUrl = m[1];
-    const title = m[2].trim();
-    const price = parseFloat(m[3].replace(/,/g, ""));
-    if (title && price > 0 && price < 200000 && !title.includes("data:image")) {
-      // Look for MRP (strikethrough price)
-      const idx = m.index ?? 0;
-      const nearby = html.slice(idx, idx + 3000);
-      const mrpMatch = nearby.match(/(?:M\.R\.P|listPrice|was)\D{0,20}?₹\s*([0-9][0-9,]{1,8})/i);
-      const mrp = mrpMatch ? parseFloat(mrpMatch[1].replace(/,/g, "")) : undefined;
-      deals.push(makeDeal({ title, marketplace: "Amazon", currentPrice: price, originalPrice: mrp, url: pageUrl, imageUrl }));
+  // Strategy 1: Find product links (/dp/ASIN) with nearby image and price
+  const dpLinks = Array.from(html.matchAll(/href="(\/[^"]*?\/dp\/([A-Z0-9]{10})[^"]*)"/gi));
+  for (const dpMatch of dpLinks) {
+    const productPath = dpMatch[1];
+    const asin = dpMatch[2];
+    const idx = dpMatch.index ?? 0;
+
+    // Search in a window around the link for image, title, and price
+    const windowStart = Math.max(0, idx - 2000);
+    const windowEnd = Math.min(html.length, idx + 4000);
+    const window = html.slice(windowStart, windowEnd);
+
+    // Find image
+    const imgMatch = window.match(/src="(https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9_+%-]+\.[^"]+)"/);
+    const imageUrl = imgMatch?.[1] ?? null;
+
+    // Find title from alt text or span/div content near the link
+    let title = "";
+    const altMatch = window.match(/alt="([^"]{10,200})"/);
+    if (altMatch) title = altMatch[1];
+    // Also try span text near dp link
+    if (!title || title.length < 10) {
+      const spanMatch = window.match(/>([^<]{15,200})<\/(?:span|a|div|h2)/);
+      if (spanMatch) title = spanMatch[1];
+    }
+
+    // Find price
+    const priceMatch = window.match(/₹\s*([0-9][0-9,]{1,8})/);
+    const price = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, "")) : 0;
+
+    // Find MRP
+    const mrpMatch = window.match(/(?:M\.R\.P|listPrice|was|a-text-price)[^₹]{0,30}₹\s*([0-9][0-9,]{1,8})/i);
+    const mrp = mrpMatch ? parseFloat(mrpMatch[1].replace(/,/g, "")) : undefined;
+
+    if (title && title.length >= 10 && price > 0 && price < 200000 && !seenTitles.has(title)) {
+      seenTitles.add(title);
+      const productUrl = `https://www.amazon.in/dp/${asin}`;
+      deals.push(makeDeal({
+        title,
+        marketplace: "Amazon",
+        currentPrice: price,
+        originalPrice: mrp && mrp > price ? mrp : undefined,
+        url: productUrl,
+        imageUrl: imageUrl && !imageUrl.includes(".css") && !imageUrl.includes(".js") ? imageUrl : undefined,
+      }));
     }
     if (deals.length >= 12) break;
   }
 
-  // Pattern 2: Product link + price
+  // Strategy 2: img alt + price (fallback)
   if (deals.length < 3) {
-    const linkPattern = /href=["'](\/[^"']*\/dp\/[A-Z0-9]{10}[^"']*)["'][^>]*>[\s\S]{0,200}?([^<]{5,80})<\/[\s\S]{0,2000}?₹\s*([0-9][0-9,]{1,8})/gi;
-    for (const m of html.matchAll(linkPattern)) {
-      const url = `https://www.amazon.in${m[1]}`;
+    const imgPatterns = html.matchAll(/<img[^>]+src="(https:\/\/m\.media-amazon\.com\/images\/I\/[^"]+)"[^>]*alt="([^"]{10,200})"/gi);
+    for (const m of imgPatterns) {
+      const imageUrl = m[1];
       const title = m[2].trim();
-      const price = parseFloat(m[3].replace(/,/g, ""));
-      if (title && price > 0 && price < 200000) {
-        deals.push(makeDeal({ title, marketplace: "Amazon", currentPrice: price, url }));
+      if (seenTitles.has(title) || imageUrl.includes(".css") || imageUrl.includes(".js")) continue;
+      const idx = m.index ?? 0;
+      const nearby = html.slice(idx, idx + 3000);
+      const priceMatch = nearby.match(/₹\s*([0-9][0-9,]{1,8})/);
+      if (priceMatch) {
+        const price = parseFloat(priceMatch[1].replace(/,/g, ""));
+        if (price > 0 && price < 200000) {
+          seenTitles.add(title);
+          deals.push(makeDeal({ title, marketplace: "Amazon", currentPrice: price, url: pageUrl, imageUrl }));
+        }
       }
       if (deals.length >= 12) break;
     }

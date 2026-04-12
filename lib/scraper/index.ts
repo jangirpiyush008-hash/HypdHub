@@ -52,13 +52,12 @@ export async function scrapeAllMarketplaces(): Promise<{
     return memCache;
   }
 
-  // Layer 2: Check persistent file cache
+  // Layer 2: Check persistent file cache (only use if deals have images — skip stale broken data)
   const fileCached = await getAllCachedDeals();
-  if (fileCached.deals.length > 20) {
-    // File cache has good data — serve it and refresh in background
+  const hasImages = fileCached.deals.some((d) => d.imageUrl);
+  if (fileCached.deals.length > 20 && hasImages) {
     const result = { deals: fileCached.deals, sources: fileCached.sources, scrapedAt: fileCached.updatedAt, fetchedAt: now };
     memCache = result;
-    // Trigger background refresh (don't await)
     refreshAllInBackground().catch(() => {});
     return result;
   }
