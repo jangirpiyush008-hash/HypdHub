@@ -14,6 +14,29 @@ import { humanFetch, humanNavigate, tryStrategies, getRandomProfile } from "./hu
 
 type Marketplace = InternetDeal["marketplace"];
 
+/** Decode HTML entities like &amp; &#x27; &#39; etc */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+
+/** Clean and normalize a product title */
+function cleanTitle(raw: string): string {
+  let t = decodeHtmlEntities(raw);
+  // Remove leading pipe/dash fragments from bad HTML parsing
+  t = t.replace(/^[\s|:·\-–—]+/, "");
+  // Collapse whitespace
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+
 function makeDeal(opts: {
   title: string;
   marketplace: Marketplace;
@@ -39,7 +62,7 @@ function makeDeal(opts: {
 
   return {
     id: `agent-${opts.marketplace}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    title: opts.title.slice(0, 80),
+    title: cleanTitle(opts.title).slice(0, 120),
     marketplace: opts.marketplace,
     category: opts.category || guessCategory(opts.title),
     imageUrl: opts.imageUrl || null,
