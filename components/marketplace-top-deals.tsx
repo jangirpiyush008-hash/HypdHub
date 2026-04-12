@@ -55,15 +55,15 @@ const PRICE_RANGES = [
   { label: "₹5K+", min: 5000, max: 999999 },
 ];
 
-// Marketplace branding — uses /public/logos/ files if uploaded, falls back to inline SVG
-const MARKETPLACE_BRANDING: Record<string, { color: string; bg: string; logoFile: string; fallbackLetter: string }> = {
-  Myntra: { color: "#ff3f6c", bg: "#fff0f3", logoFile: "/logos/myntra.png", fallbackLetter: "M" },
-  Amazon: { color: "#ff9900", bg: "#fff8ee", logoFile: "/logos/amazon.png", fallbackLetter: "a" },
-  Flipkart: { color: "#2874f0", bg: "#eef4ff", logoFile: "/logos/flipkart.png", fallbackLetter: "F" },
-  Ajio: { color: "#3b3b3b", bg: "#f5f5f5", logoFile: "/logos/ajio.png", fallbackLetter: "A" },
-  Nykaa: { color: "#fc2779", bg: "#fff0f6", logoFile: "/logos/nykaa.png", fallbackLetter: "N" },
-  Shopsy: { color: "#7b2ff7", bg: "#f3eeff", logoFile: "/logos/shopsy.png", fallbackLetter: "S" },
-  HYPD: { color: "#fb6c23", bg: "#fff4ee", logoFile: "/logos/hypd.png", fallbackLetter: "H" },
+// Marketplace branding
+const MARKETPLACE_BRANDING: Record<string, { color: string; bg: string; logoBg: string; logoFile: string; fallbackLetter: string }> = {
+  Myntra: { color: "#ff3f6c", bg: "#ff3f6c15", logoBg: "#ffffff", logoFile: "/logos/myntra.png", fallbackLetter: "M" },
+  Amazon: { color: "#ff9900", bg: "#ff990015", logoBg: "#ffffff", logoFile: "/logos/amazon.png", fallbackLetter: "a" },
+  Flipkart: { color: "#2874f0", bg: "#2874f015", logoBg: "transparent", logoFile: "/logos/flipkart.png", fallbackLetter: "F" },
+  Ajio: { color: "#3b3b3b", bg: "#3b3b3b15", logoBg: "#ffffff", logoFile: "/logos/ajio.png", fallbackLetter: "A" },
+  Nykaa: { color: "#fc2779", bg: "#fc277915", logoBg: "#ffffff", logoFile: "/logos/nykaa.png", fallbackLetter: "N" },
+  Shopsy: { color: "#7b2ff7", bg: "#7b2ff715", logoBg: "transparent", logoFile: "/logos/shopsy.png", fallbackLetter: "S" },
+  HYPD: { color: "#fb6c23", bg: "#fb6c2315", logoBg: "transparent", logoFile: "/logos/hypd.png", fallbackLetter: "H" },
 };
 
 /** Marketplace logo component — tries real logo file, falls back to styled letter */
@@ -74,7 +74,7 @@ function MarketplaceLogo({ marketplace, size = 20 }: { marketplace: string; size
   if (useFallback) {
     return (
       <span
-        className="inline-flex items-center justify-center rounded font-bold text-white"
+        className="inline-flex flex-shrink-0 items-center justify-center rounded font-bold text-white"
         style={{
           width: size,
           height: size,
@@ -88,16 +88,23 @@ function MarketplaceLogo({ marketplace, size = 20 }: { marketplace: string; size
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={branding.logoFile}
-      alt={marketplace}
-      width={size}
-      height={size}
-      className="rounded object-contain"
-      style={{ width: size, height: size }}
-      onError={() => setUseFallback(true)}
-    />
+    <span
+      className="inline-flex flex-shrink-0 items-center justify-center overflow-hidden rounded"
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: branding.logoBg,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={branding.logoFile}
+        alt={marketplace}
+        className="h-full w-full object-contain"
+        style={{ padding: size > 20 ? 2 : 1 }}
+        onError={() => setUseFallback(true)}
+      />
+    </span>
   );
 }
 
@@ -121,14 +128,10 @@ function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string
   // Fallback: marketplace logo with product name
   if (!src || failed) {
     return (
-      <div
-        className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-t-lg p-4"
-        style={{ backgroundColor: branding.bg }}
-      >
-        <MarketplaceLogo marketplace={marketplace} size={36} />
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-t-lg bg-surface-high p-4">
+        <MarketplaceLogo marketplace={marketplace} size={44} />
         <span
-          className="line-clamp-2 text-center text-xs font-semibold leading-tight"
-          style={{ color: branding.color }}
+          className="line-clamp-2 text-center text-[11px] font-semibold leading-tight text-muted"
         >
           {decodeEntities(alt)}
         </span>
@@ -143,12 +146,15 @@ function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string
         src={src}
         alt={decodeEntities(alt)}
         loading="lazy"
-        className="h-full w-full rounded-t-lg object-cover"
+        className="h-full w-full rounded-t-lg object-contain p-1"
         onError={() => setFailed(true)}
       />
       {/* Small marketplace logo badge overlay */}
-      <div className="absolute bottom-2 right-2">
-        <MarketplaceLogo marketplace={marketplace} size={20} />
+      <div
+        className="absolute bottom-1.5 right-1.5 rounded-md shadow-sm"
+        style={{ backgroundColor: branding.logoBg === "transparent" ? undefined : "white" }}
+      >
+        <MarketplaceLogo marketplace={marketplace} size={22} />
       </div>
     </div>
   );
@@ -302,10 +308,10 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
                   {/* Marketplace badge */}
                   <div className="flex items-center gap-2">
                     <span
-                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold"
+                      className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold"
                       style={{ backgroundColor: branding.bg, color: branding.color }}
                     >
-                      <MarketplaceLogo marketplace={deal.marketplace} size={12} />
+                      <MarketplaceLogo marketplace={deal.marketplace} size={14} />
                       {deal.marketplace}
                     </span>
                     {deal.category && deal.category !== "General" && (
