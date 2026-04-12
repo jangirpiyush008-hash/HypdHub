@@ -8,6 +8,7 @@ type Marketplace =
   | "Shopsy"
   | "Nykaa"
   | "Ajio"
+  | "Amazon"
   | "Unsupported";
 
 type HypdPathType = "collection" | "product" | "brand" | "afflink" | "unknown";
@@ -61,6 +62,7 @@ function detectMarketplace(url: URL): Marketplace {
   if (host.includes("shopsy")) return "Shopsy";
   if (host.includes("nykaa")) return "Nykaa";
   if (host.includes("ajio")) return "Ajio";
+  if (host.includes("amazon")) return "Amazon";
 
   return "Unsupported";
 }
@@ -192,6 +194,19 @@ function buildMarketplaceLinks(url: URL, creatorUsername: string, marketplace: E
       offer_id: "2",
       attribution_window: "2D",
       return_cancellation_window: "45D"
+    });
+  }
+
+  if (marketplace === "Amazon") {
+    expandedLink = appendSearchParams(url, {
+      tag: "hypd0f-21",
+      linkCode: "ogi",
+      th: "1",
+      psc: "1",
+      utm_source: "hypd",
+      utm_medium: "affiliate",
+      utm_campaign: normalizedUsername,
+      ref_: `as_li_ss_tl_${clickId}`
     });
   }
 

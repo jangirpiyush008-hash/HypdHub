@@ -5,6 +5,8 @@ import { scrapeMarketplaceDeals } from "@/lib/integrations/marketplace-scraper";
 import { getDealHistorySummary } from "@/lib/runtime/deal-history";
 import { ensureAutomaticRefresh, getRefreshStatus } from "@/lib/runtime/refresh-state";
 import { InternetDeal } from "@/lib/types";
+import { generateHypdConversion } from "@/lib/hypd-links";
+import { fetchCurrentHypdCreator } from "@/lib/hypd-server";
 
 const supportedMarketplaces: InternetDeal["marketplace"][] = [
   "Myntra",
@@ -15,6 +17,31 @@ const supportedMarketplaces: InternetDeal["marketplace"][] = [
   "Nykaa",
   "HYPD"
 ];
+
+/**
+ * Convert all deal URLs to HYPD affiliate links with proper UTM tracking.
+ * If user is logged in, uses their username. Otherwise uses "hypdhub" as default.
+ */
+function convertDealLinksToHypd(deals: InternetDeal[], creatorUsername: string): InternetDeal[] {
+  return deals.map((deal) => {
+    const url = deal.originalUrl || deal.canonicalUrl;
+    if (!url) return deal;
+
+    try {
+      const conversion = generateHypdConversion(url, creatorUsername);
+      if (!conversion || conversion.marketplace === "Unsupported") return deal;
+
+      return {
+        ...deal,
+        // Replace the URLs with HYPD-converted links
+        canonicalUrl: conversion.expandedLink || deal.canonicalUrl,
+        originalUrl: conversion.expandedLink || deal.originalUrl,
+      };
+    } catch {
+      return deal;
+    }
+  });
+}
 
 function emptyMarketplaceBoards() {
   return supportedMarketplaces.reduce<Record<string, InternetDeal[]>>((acc, m) => {
@@ -71,6 +98,10 @@ export async function GET(request: NextRequest) {
   const minPrice = Number(searchParams.get("minPrice") ?? "0");
   const maxPrice = Number(searchParams.get("maxPrice") ?? "999999");
 
+  // Get logged-in creator username for link conversion (fallback to "hypdhub")
+  const creator = await fetchCurrentHypdCreator().catch(() => null);
+  const creatorUsername = creator?.hypdUsername ?? "hypdhub";
+
   // Fetch from all sources in parallel with individual error handling
   const [telegram, history, refresh, hypd, scraped] = await Promise.all([
     fetchTelegramDeals().catch(() => ({ deals: [] as InternetDeal[], topDealsByMarketplace: {} as Record<string, InternetDeal[]> })),
@@ -92,7 +123,9 @@ export async function GET(request: NextRequest) {
   const hypdDeals = hypdProductsToDeals(hypd);
 
   // Merge all sources — each stays under its own marketplace
-  const allDeals = [...telegram.deals, ...scraped.deals, ...hypdDeals];
+  // Convert ALL deal links to HYPD affiliate links with proper UTM tracking
+  const rawDeals = [...telegram.deals, ...scraped.deals, ...hypdDeals];
+  const allDeals = convertDealLinksToHypd(rawDeals, creatorUsername);
 
   const filteredDeals = allDeals.filter((deal) => {
     const marketplaceMatch = !marketplace || marketplace === "All" || deal.marketplace === marketplace;
