@@ -91,9 +91,9 @@ function hypdProductsToDeals(hypd: Awaited<ReturnType<typeof fetchHypdProducts>>
   }));
 }
 
-// Cache deals response for 60 seconds to avoid re-fetching on every request
+// Cache deals response for 5 minutes to avoid re-fetching on every request
 let dealsCache: { data: unknown; fetchedAt: number } | null = null;
-const DEALS_CACHE_MS = 60_000;
+const DEALS_CACHE_MS = 5 * 60_000;
 
 export async function GET(request: NextRequest) {
   const now = Date.now();

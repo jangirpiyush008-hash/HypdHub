@@ -123,7 +123,6 @@ function decodeEntities(text: string): string {
 
 function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string; marketplace: string }) {
   const [failed, setFailed] = useState(false);
-  const branding = MARKETPLACE_BRANDING[marketplace] ?? MARKETPLACE_BRANDING.HYPD;
 
   // Fallback: marketplace logo with product name
   if (!src || failed) {
@@ -138,6 +137,8 @@ function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string
       </div>
     );
   }
+
+  const branding = MARKETPLACE_BRANDING[marketplace] ?? MARKETPLACE_BRANDING.HYPD;
 
   return (
     <div className="relative h-full w-full rounded-t-lg bg-white">
@@ -201,6 +202,7 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
   }, [allDeals, selectedMarketplace, selectedPriceRange]);
 
   function getExternalHref(deal: InternetDeal) {
+    // In category mode, prefer categoryUrl. In product mode, prefer originalUrl.
     const candidate = linkMode === "category" && deal.categoryUrl
       ? deal.categoryUrl
       : (deal.originalUrl || deal.canonicalUrl);
@@ -225,8 +227,34 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
     <div className="space-y-4">
       {/* ── Filter Header ── */}
       <div className="rounded-xl bg-surface-card p-4 space-y-3">
-        {/* Marketplace tabs */}
-        <div className="hide-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {/* Link mode toggle + Marketplace tabs */}
+        <div className="hide-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1">
+          {/* Product / Category toggle — always visible */}
+          <div className="flex flex-shrink-0 items-center rounded-lg bg-surface-high p-0.5">
+            <button
+              onClick={() => setLinkMode("product")}
+              className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-all ${
+                linkMode === "product"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-muted hover:text-text"
+              }`}
+            >
+              Product Link
+            </button>
+            <button
+              onClick={() => setLinkMode("category")}
+              className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-all ${
+                linkMode === "category"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-muted hover:text-text"
+              }`}
+            >
+              Category Link
+            </button>
+          </div>
+
+          <div className="h-6 w-px flex-shrink-0 bg-border" />
+
           {ALL_MARKETPLACES.map((m) => {
             const isActive = selectedMarketplace === m;
             const count = m === "All" ? allDeals.length : (marketplaceCounts[m] || 0);
@@ -254,33 +282,8 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
           })}
         </div>
 
-        {/* Link mode toggle + Price range */}
-        <div className="hide-scrollbar -mx-1 flex items-center gap-3 overflow-x-auto px-1">
-          {isLoggedIn && (
-            <div className="flex flex-shrink-0 items-center rounded-lg bg-surface-high p-0.5">
-              <button
-                onClick={() => setLinkMode("product")}
-                className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-all ${
-                  linkMode === "product"
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-muted hover:text-text"
-                }`}
-              >
-                Product Link
-              </button>
-              <button
-                onClick={() => setLinkMode("category")}
-                className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-all ${
-                  linkMode === "category"
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-muted hover:text-text"
-                }`}
-              >
-                Category Link
-              </button>
-            </div>
-          )}
-
+        {/* Price range */}
+        <div className="hide-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
           {PRICE_RANGES.map((range, idx) => (
             <button
               key={range.label}
@@ -302,6 +305,7 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
         <p className="text-xs text-muted">
           {filteredDeals.length} deal{filteredDeals.length !== 1 ? "s" : ""} found
           {selectedMarketplace !== "All" ? ` on ${selectedMarketplace}` : ""}
+          {linkMode === "category" ? " · Category links" : " · Product links"}
         </p>
         {selectedMarketplace !== "All" || selectedPriceRange !== 0 ? (
           <button
@@ -377,7 +381,7 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
                       style={{ backgroundColor: branding.bg, color: branding.color }}
                     >
                       <MarketplaceLogo marketplace={deal.marketplace} size={16} />
-                      View on {deal.marketplace} →
+                      {linkMode === "category" ? `Browse on ${deal.marketplace}` : `View on ${deal.marketplace}`} →
                     </a>
                   ) : null}
                 </div>

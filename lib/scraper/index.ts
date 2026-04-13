@@ -1,11 +1,10 @@
 /**
  * Scraper Orchestrator
  *
- * Coordinates all marketplace agents:
- * 1. Check persistent cache — serve if fresh
- * 2. Run human-agent scrapers in parallel
- * 3. Fall back to curated deals for any marketplace that fails
- * 4. Persist results to file cache for fast future loads
+ * Fast-first approach:
+ * 1. Serve curated deals INSTANTLY (no waiting)
+ * 2. Background scrape replaces curated with live data
+ * 3. Cache live results for 10 minutes
  */
 
 import { InternetDeal } from "@/lib/types";
@@ -31,14 +30,16 @@ const SCRAPERS: Array<{ name: MarketplaceName; fn: () => Promise<InternetDeal[]>
   { name: "Shopsy", fn: scrapeShopsy },
 ];
 
-// In-memory cache with 10-minute TTL
+const ALL_MARKETPLACE_NAMES: MarketplaceName[] = ["Myntra", "Flipkart", "Amazon", "Ajio", "Nykaa", "Shopsy"];
+
+// In-memory cache
 const CACHE_FRESH_MINUTES = 10;
 let memCache: { deals: InternetDeal[]; sources: string[]; scrapedAt: string; fetchedAt: number } | null = null;
 const MEM_CACHE_MS = CACHE_FRESH_MINUTES * 60 * 1000;
 
 /**
- * Main entry point — returns deals from all marketplaces.
- * Uses layered caching: memory → file → scrape → curated fallback
+ * Main entry — returns deals instantly.
+ * Uses: memory cache → file cache → curated (instant) + background scrape
  */
 export async function scrapeAllMarketplaces(): Promise<{
   deals: InternetDeal[];
@@ -47,105 +48,80 @@ export async function scrapeAllMarketplaces(): Promise<{
 }> {
   const now = Date.now();
 
-  // Layer 1: In-memory cache
+  // Layer 1: In-memory cache (instant)
   if (memCache && now - memCache.fetchedAt < MEM_CACHE_MS) {
     return memCache;
   }
 
-  // Layer 2: Check persistent file cache (only use if deals have images — skip stale broken data)
+  // Layer 2: File cache (fast disk read)
   const fileCached = await getAllCachedDeals();
-  const hasImages = fileCached.deals.some((d) => d.imageUrl);
-  if (fileCached.deals.length > 20 && hasImages) {
+  if (fileCached.deals.length > 10) {
     const result = { deals: fileCached.deals, sources: fileCached.sources, scrapedAt: fileCached.updatedAt, fetchedAt: now };
     memCache = result;
+    // Refresh in background if cache is getting old
     refreshAllInBackground().catch(() => {});
     return result;
   }
 
-  // Layer 3: Fresh scrape all marketplaces
-  return freshScrapeAll();
-}
-
-async function freshScrapeAll(): Promise<{
-  deals: InternetDeal[];
-  sources: string[];
-  scrapedAt: string;
-}> {
-  const now = Date.now();
+  // Layer 3: Serve curated instantly, scrape in background
   const allDeals: InternetDeal[] = [];
   const sources: string[] = [];
+  for (const name of ALL_MARKETPLACE_NAMES) {
+    const curated = getCuratedDeals(name);
+    allDeals.push(...curated);
+    sources.push(`${name}: ${curated.length} (curated)`);
+  }
+  allDeals.sort((a, b) => b.score - a.score);
 
-  const results = await Promise.all(
-    SCRAPERS.map(async (s) => {
-      // Check per-marketplace cache first
-      const cached = await getCachedDeals(s.name);
-      if (cached && isCacheFresh(cached, CACHE_FRESH_MINUTES)) {
-        return { name: s.name, deals: cached.deals, source: cached.source, strategy: cached.strategy };
-      }
+  const result = { deals: allDeals, sources, scrapedAt: new Date().toISOString(), fetchedAt: now };
+  memCache = result;
 
-      // Try live scraping
+  // Kick off background scrape to replace curated with live data
+  refreshAllInBackground().catch(() => {});
+
+  return result;
+}
+
+/**
+ * Background refresh — scrapes each marketplace and updates cache.
+ * Next API call will get live data from memory/file cache.
+ */
+let refreshRunning = false;
+async function refreshAllInBackground(): Promise<void> {
+  if (refreshRunning) return;
+  refreshRunning = true;
+
+  try {
+    for (const s of SCRAPERS) {
       try {
+        const cached = await getCachedDeals(s.name);
+        if (cached && isCacheFresh(cached, CACHE_FRESH_MINUTES)) continue;
+
         const deals = await s.fn();
         if (deals.length > 0) {
-          // Save to persistent cache
           await setCachedDeals(s.name, {
             deals,
             source: "live",
             scrapedAt: new Date().toISOString(),
             strategy: "human-agent",
           });
-          return { name: s.name, deals, source: "live" as const, strategy: "human-agent" };
+        } else {
+          // Save curated as fallback
+          const curated = getCuratedDeals(s.name);
+          await setCachedDeals(s.name, {
+            deals: curated,
+            source: "curated",
+            scrapedAt: new Date().toISOString(),
+            strategy: "fallback",
+          });
         }
       } catch {
-        // Scraping failed
+        // Skip failed marketplace
       }
-
-      // Try curated fallback
-      const curated = getCuratedDeals(s.name);
-      await setCachedDeals(s.name, {
-        deals: curated,
-        source: "curated",
-        scrapedAt: new Date().toISOString(),
-        strategy: "fallback",
-      });
-      return { name: s.name, deals: curated, source: "curated" as const, strategy: "fallback" };
-    })
-  );
-
-  for (const r of results) {
-    allDeals.push(...r.deals);
-    sources.push(`${r.name}: ${r.deals.length} (${r.source}${r.strategy ? ` via ${r.strategy}` : ""})`);
-  }
-
-  allDeals.sort((a, b) => b.score - a.score);
-
-  const result = { deals: allDeals, sources, scrapedAt: new Date().toISOString(), fetchedAt: now };
-  memCache = result;
-  return result;
-}
-
-/**
- * Background refresh — scrapes each marketplace and updates cache
- */
-async function refreshAllInBackground(): Promise<void> {
-  for (const s of SCRAPERS) {
-    try {
-      const cached = await getCachedDeals(s.name);
-      if (cached && isCacheFresh(cached, CACHE_FRESH_MINUTES)) continue;
-
-      const deals = await s.fn();
-      if (deals.length > 0) {
-        await setCachedDeals(s.name, {
-          deals,
-          source: "live",
-          scrapedAt: new Date().toISOString(),
-          strategy: "human-agent",
-        });
-      }
-    } catch {
-      // Skip failed marketplace, keep existing cache
     }
+    // Clear memory cache so next request picks up fresh file cache
+    memCache = null;
+  } finally {
+    refreshRunning = false;
   }
-  // Invalidate memory cache so next request gets fresh data
-  memCache = null;
 }
