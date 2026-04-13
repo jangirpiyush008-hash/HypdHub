@@ -31,11 +31,22 @@ function convertDealLinksToHypd(deals: InternetDeal[], creatorUsername: string):
       const conversion = generateHypdConversion(url, creatorUsername);
       if (!conversion || conversion.marketplace === "Unsupported") return deal;
 
+      // Also convert categoryUrl if present
+      let convertedCategoryUrl = deal.categoryUrl;
+      if (deal.categoryUrl) {
+        try {
+          const catConversion = generateHypdConversion(deal.categoryUrl, creatorUsername);
+          if (catConversion && catConversion.marketplace !== "Unsupported") {
+            convertedCategoryUrl = catConversion.expandedLink || deal.categoryUrl;
+          }
+        } catch { /* keep original */ }
+      }
+
       return {
         ...deal,
-        // Replace the URLs with HYPD-converted links
         canonicalUrl: conversion.expandedLink || deal.canonicalUrl,
         originalUrl: conversion.expandedLink || deal.originalUrl,
+        categoryUrl: convertedCategoryUrl,
       };
     } catch {
       return deal;

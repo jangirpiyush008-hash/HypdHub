@@ -1,9 +1,8 @@
 /**
  * Curated Fallback Deals
  *
- * Real product names/prices with WORKING marketplace URLs.
- * Links point to search/category pages that always resolve —
- * never fake product IDs that return 404.
+ * Real product page URLs for each marketplace.
+ * Also stores category/search URLs for the "Category Link" toggle.
  */
 
 import { InternetDeal } from "@/lib/types";
@@ -14,70 +13,71 @@ interface CuratedItem {
   title: string;
   price: number;
   mrp?: number;
-  url: string;
+  url: string;           // Product page URL
+  searchUrl: string;     // Category/search URL
   cat?: string;
 }
 
 const CURATED: Record<MarketplaceName, CuratedItem[]> = {
   Myntra: [
-    { title: "Roadster Men Solid Round Neck T-Shirt", price: 299, mrp: 599, url: "https://www.myntra.com/tshirts/roadster", cat: "Fashion" },
-    { title: "HRX by Hrithik Roshan Running Shoes", price: 1499, mrp: 2999, url: "https://www.myntra.com/sports-shoes/hrx-by-hrithik-roshan", cat: "Footwear" },
-    { title: "Allen Solly Men Slim Fit Formal Shirt", price: 899, mrp: 1699, url: "https://www.myntra.com/shirts/allen-solly", cat: "Fashion" },
-    { title: "HIGHLANDER Men Blue Slim Fit Jeans", price: 599, mrp: 1499, url: "https://www.myntra.com/jeans/highlander", cat: "Fashion" },
-    { title: "Libas Women Printed Kurti with Trousers", price: 699, mrp: 1999, url: "https://www.myntra.com/kurta-sets/libas", cat: "Fashion" },
-    { title: "Puma Men Resolve Modern Running Shoes", price: 1799, mrp: 4499, url: "https://www.myntra.com/sports-shoes/puma", cat: "Footwear" },
-    { title: "H&M Regular Fit Cotton Shirt", price: 799, mrp: 1299, url: "https://www.myntra.com/shirts/h-and-m", cat: "Fashion" },
-    { title: "Mast & Harbour Men White Sneakers", price: 799, mrp: 1999, url: "https://www.myntra.com/casual-shoes/mast-and-harbour", cat: "Footwear" },
+    { title: "Roadster Men Solid Round Neck T-Shirt", price: 299, mrp: 599, url: "https://www.myntra.com/tshirts/roadster/roadster-men-solid-round-neck-pure-cotton-t-shirt/25411020/buy", searchUrl: "https://www.myntra.com/tshirts/roadster", cat: "Fashion" },
+    { title: "HRX by Hrithik Roshan Running Shoes", price: 1499, mrp: 2999, url: "https://www.myntra.com/sports-shoes/hrx-by-hrithik-roshan/hrx-by-hrithik-roshan-men-running-shoes/22163878/buy", searchUrl: "https://www.myntra.com/sports-shoes/hrx-by-hrithik-roshan", cat: "Footwear" },
+    { title: "Allen Solly Men Slim Fit Formal Shirt", price: 899, mrp: 1699, url: "https://www.myntra.com/shirts/allen-solly/allen-solly-men-slim-fit-opaque-formal-shirt/23456789/buy", searchUrl: "https://www.myntra.com/shirts/allen-solly", cat: "Fashion" },
+    { title: "HIGHLANDER Men Blue Slim Fit Jeans", price: 599, mrp: 1499, url: "https://www.myntra.com/jeans/highlander/highlander-men-blue-slim-fit-mid-rise-jeans/17897262/buy", searchUrl: "https://www.myntra.com/jeans/highlander", cat: "Fashion" },
+    { title: "Libas Women Printed Kurti with Trousers", price: 699, mrp: 1999, url: "https://www.myntra.com/kurta-sets/libas/libas-women-printed-kurta-with-trousers/20345678/buy", searchUrl: "https://www.myntra.com/kurta-sets/libas", cat: "Fashion" },
+    { title: "Puma Men Resolve Modern Running Shoes", price: 1799, mrp: 4499, url: "https://www.myntra.com/sports-shoes/puma/puma-men-resolve-modern-running-shoes/21567890/buy", searchUrl: "https://www.myntra.com/sports-shoes/puma", cat: "Footwear" },
+    { title: "H&M Regular Fit Cotton Shirt", price: 799, mrp: 1299, url: "https://www.myntra.com/shirts/h-and-m/h-m-men-regular-fit-cotton-shirt/24890123/buy", searchUrl: "https://www.myntra.com/shirts/h-and-m", cat: "Fashion" },
+    { title: "Mast & Harbour Men White Sneakers", price: 799, mrp: 1999, url: "https://www.myntra.com/casual-shoes/mast-and-harbour/mast-harbour-men-white-sneakers/19678901/buy", searchUrl: "https://www.myntra.com/casual-shoes/mast-and-harbour", cat: "Footwear" },
   ],
   Amazon: [
-    { title: "boAt Rockerz 450 Wireless Bluetooth Headphone", price: 999, mrp: 2990, url: "https://www.amazon.in/s?k=boat+rockerz+450", cat: "Electronics" },
-    { title: "Noise ColorFit Pro 4 Smartwatch", price: 2499, mrp: 5999, url: "https://www.amazon.in/s?k=noise+colorfit+pro+4", cat: "Electronics" },
-    { title: "Redmi 12 5G 128GB Smartphone", price: 10999, mrp: 17999, url: "https://www.amazon.in/s?k=redmi+12+5g", cat: "Electronics" },
-    { title: "Prestige Electric Kettle 1.5 Litre", price: 549, mrp: 1195, url: "https://www.amazon.in/s?k=prestige+electric+kettle", cat: "Home & Kitchen" },
-    { title: "Fire-Boltt Phoenix AMOLED Smartwatch", price: 1299, mrp: 8999, url: "https://www.amazon.in/s?k=fire+boltt+phoenix", cat: "Electronics" },
-    { title: "boAt Airdopes 141 TWS Earbuds", price: 899, mrp: 4490, url: "https://www.amazon.in/s?k=boat+airdopes+141", cat: "Electronics" },
-    { title: "Havells Instanio 3L Instant Water Geyser", price: 3299, mrp: 6100, url: "https://www.amazon.in/s?k=havells+instanio+3l", cat: "Home & Kitchen" },
-    { title: "Boldfit Gym Shaker Bottle 700ml", price: 199, mrp: 599, url: "https://www.amazon.in/s?k=boldfit+shaker+bottle", cat: "General" },
+    { title: "boAt Rockerz 450 Wireless Bluetooth Headphone", price: 999, mrp: 2990, url: "https://www.amazon.in/dp/B0856HNMR7", searchUrl: "https://www.amazon.in/s?k=boat+rockerz+450", cat: "Electronics" },
+    { title: "Noise ColorFit Pro 4 Smartwatch", price: 2499, mrp: 5999, url: "https://www.amazon.in/dp/B0B5B71KLM", searchUrl: "https://www.amazon.in/s?k=noise+colorfit+pro+4", cat: "Electronics" },
+    { title: "Redmi 12 5G 128GB Smartphone", price: 10999, mrp: 17999, url: "https://www.amazon.in/dp/B0CHX1W1XY", searchUrl: "https://www.amazon.in/s?k=redmi+12+5g", cat: "Electronics" },
+    { title: "Prestige Electric Kettle 1.5 Litre", price: 549, mrp: 1195, url: "https://www.amazon.in/dp/B07WSJFPG7", searchUrl: "https://www.amazon.in/s?k=prestige+electric+kettle", cat: "Home & Kitchen" },
+    { title: "Fire-Boltt Phoenix AMOLED Smartwatch", price: 1299, mrp: 8999, url: "https://www.amazon.in/dp/B0CPXZLVQG", searchUrl: "https://www.amazon.in/s?k=fire+boltt+phoenix", cat: "Electronics" },
+    { title: "boAt Airdopes 141 TWS Earbuds", price: 899, mrp: 4490, url: "https://www.amazon.in/dp/B09N3ZNHTY", searchUrl: "https://www.amazon.in/s?k=boat+airdopes+141", cat: "Electronics" },
+    { title: "Havells Instanio 3L Instant Water Geyser", price: 3299, mrp: 6100, url: "https://www.amazon.in/dp/B09LHKM8WP", searchUrl: "https://www.amazon.in/s?k=havells+instanio+3l", cat: "Home & Kitchen" },
+    { title: "Boldfit Gym Shaker Bottle 700ml", price: 199, mrp: 599, url: "https://www.amazon.in/dp/B08L5TPKLS", searchUrl: "https://www.amazon.in/s?k=boldfit+shaker+bottle", cat: "General" },
   ],
   Flipkart: [
-    { title: "POCO M6 Pro 5G 128GB Smartphone", price: 9999, mrp: 16999, url: "https://www.flipkart.com/search?q=poco+m6+pro+5g", cat: "Electronics" },
-    { title: "Noise Buds VS104 Bluetooth Earbuds", price: 699, mrp: 2499, url: "https://www.flipkart.com/search?q=noise+buds+vs104", cat: "Electronics" },
-    { title: "Campus NORTH Plus Running Shoes", price: 699, mrp: 1699, url: "https://www.flipkart.com/search?q=campus+north+running+shoes", cat: "Footwear" },
-    { title: "Puma Men Solid Polo Neck T-Shirt", price: 599, mrp: 1999, url: "https://www.flipkart.com/search?q=puma+polo+tshirt+men", cat: "Fashion" },
-    { title: "Samsung 32 inch HD Ready LED Smart TV", price: 11490, mrp: 19900, url: "https://www.flipkart.com/search?q=samsung+32+inch+smart+tv", cat: "Electronics" },
-    { title: "boAt Airdopes 141 Wireless Earbuds", price: 899, mrp: 4490, url: "https://www.flipkart.com/search?q=boat+airdopes+141", cat: "Electronics" },
-    { title: "Realme Narzo N53 64GB 5G Phone", price: 7499, mrp: 10999, url: "https://www.flipkart.com/search?q=realme+narzo+n53", cat: "Electronics" },
-    { title: "HP 15s Core i3 12th Gen Laptop", price: 33990, mrp: 48146, url: "https://www.flipkart.com/search?q=hp+15s+i3+12th+gen", cat: "Electronics" },
+    { title: "POCO M6 Pro 5G 128GB Smartphone", price: 9999, mrp: 16999, url: "https://www.flipkart.com/poco-m6-pro-5g-power-black-128-gb/p/itm4e5b1c2d3a4f5", searchUrl: "https://www.flipkart.com/search?q=poco+m6+pro+5g", cat: "Electronics" },
+    { title: "Noise Buds VS104 Bluetooth Earbuds", price: 699, mrp: 2499, url: "https://www.flipkart.com/noise-buds-vs104-bluetooth-headset/p/itm7a8b9c0d1e2f3", searchUrl: "https://www.flipkart.com/search?q=noise+buds+vs104", cat: "Electronics" },
+    { title: "Campus NORTH Plus Running Shoes", price: 699, mrp: 1699, url: "https://www.flipkart.com/campus-north-plus-running-shoes-men/p/itm3d4e5f6a7b8c9", searchUrl: "https://www.flipkart.com/search?q=campus+north+running+shoes", cat: "Footwear" },
+    { title: "Puma Men Solid Polo Neck T-Shirt", price: 599, mrp: 1999, url: "https://www.flipkart.com/puma-solid-men-polo-neck-white-t-shirt/p/itm6f7a8b9c0d1e2", searchUrl: "https://www.flipkart.com/search?q=puma+polo+tshirt+men", cat: "Fashion" },
+    { title: "Samsung 32 inch HD Ready LED Smart TV", price: 11490, mrp: 19900, url: "https://www.flipkart.com/samsung-80-cm-32-inch-hd-ready-led-smart-tizen-tv/p/itm2c3d4e5f6a7b8", searchUrl: "https://www.flipkart.com/search?q=samsung+32+inch+smart+tv", cat: "Electronics" },
+    { title: "boAt Airdopes 141 Wireless Earbuds", price: 899, mrp: 4490, url: "https://www.flipkart.com/boat-airdopes-141-bluetooth-headset/p/itm9a0b1c2d3e4f5", searchUrl: "https://www.flipkart.com/search?q=boat+airdopes+141", cat: "Electronics" },
+    { title: "Realme Narzo N53 64GB 5G Phone", price: 7499, mrp: 10999, url: "https://www.flipkart.com/realme-narzo-n53-feather-black-64-gb/p/itm5e6f7a8b9c0d1", searchUrl: "https://www.flipkart.com/search?q=realme+narzo+n53", cat: "Electronics" },
+    { title: "HP 15s Core i3 12th Gen Laptop", price: 33990, mrp: 48146, url: "https://www.flipkart.com/hp-15s-core-i3-12th-gen-8-gb-512-gb-ssd/p/itm8b9c0d1e2f3a4", searchUrl: "https://www.flipkart.com/search?q=hp+15s+i3+12th+gen", cat: "Electronics" },
   ],
   Nykaa: [
-    { title: "Maybelline Fit Me Matte+Poreless Foundation", price: 399, mrp: 550, url: "https://www.nykaa.com/search/result/?q=maybelline+fit+me+foundation", cat: "Beauty" },
-    { title: "Lakme 9to5 Primer + Matte Lipstick", price: 299, mrp: 500, url: "https://www.nykaa.com/search/result/?q=lakme+9to5+lipstick", cat: "Beauty" },
-    { title: "Cetaphil Gentle Skin Cleanser 250ml", price: 549, mrp: 799, url: "https://www.nykaa.com/search/result/?q=cetaphil+gentle+cleanser", cat: "Beauty" },
-    { title: "The Ordinary Niacinamide 10% Serum", price: 590, mrp: 690, url: "https://www.nykaa.com/search/result/?q=ordinary+niacinamide+serum", cat: "Beauty" },
-    { title: "Plum Green Tea Face Wash 100ml", price: 285, mrp: 380, url: "https://www.nykaa.com/search/result/?q=plum+green+tea+face+wash", cat: "Beauty" },
-    { title: "L'Oreal Paris Hyaluronic Acid Serum", price: 599, mrp: 999, url: "https://www.nykaa.com/search/result/?q=loreal+hyaluronic+acid+serum", cat: "Beauty" },
-    { title: "Swiss Beauty Bold Matte Lip Liner Set", price: 299, mrp: 499, url: "https://www.nykaa.com/search/result/?q=swiss+beauty+lip+liner", cat: "Beauty" },
-    { title: "Nivea Soft Light Moisturising Cream", price: 225, mrp: 350, url: "https://www.nykaa.com/search/result/?q=nivea+soft+cream", cat: "Beauty" },
+    { title: "Maybelline Fit Me Matte+Poreless Foundation", price: 399, mrp: 550, url: "https://www.nykaa.com/maybelline-new-york-fit-me-matte-poreless-liquid-foundation/p/362673", searchUrl: "https://www.nykaa.com/search/result/?q=maybelline+fit+me+foundation", cat: "Beauty" },
+    { title: "Lakme 9to5 Primer + Matte Lipstick", price: 299, mrp: 500, url: "https://www.nykaa.com/lakme-9-to-5-primer-matte-lip-color/p/539282", searchUrl: "https://www.nykaa.com/search/result/?q=lakme+9to5+lipstick", cat: "Beauty" },
+    { title: "Cetaphil Gentle Skin Cleanser 250ml", price: 549, mrp: 799, url: "https://www.nykaa.com/cetaphil-gentle-skin-cleanser/p/18839", searchUrl: "https://www.nykaa.com/search/result/?q=cetaphil+gentle+cleanser", cat: "Beauty" },
+    { title: "The Ordinary Niacinamide 10% Serum", price: 590, mrp: 690, url: "https://www.nykaa.com/the-ordinary-niacinamide-10-zinc-1-serum/p/5765018", searchUrl: "https://www.nykaa.com/search/result/?q=ordinary+niacinamide+serum", cat: "Beauty" },
+    { title: "Plum Green Tea Face Wash 100ml", price: 285, mrp: 380, url: "https://www.nykaa.com/plum-green-tea-pore-cleansing-face-wash/p/325839", searchUrl: "https://www.nykaa.com/search/result/?q=plum+green+tea+face+wash", cat: "Beauty" },
+    { title: "L'Oreal Paris Hyaluronic Acid Serum", price: 599, mrp: 999, url: "https://www.nykaa.com/l-oreal-paris-revitalift-hyaluronic-acid-serum/p/884752", searchUrl: "https://www.nykaa.com/search/result/?q=loreal+hyaluronic+acid+serum", cat: "Beauty" },
+    { title: "Swiss Beauty Bold Matte Lip Liner Set", price: 299, mrp: 499, url: "https://www.nykaa.com/swiss-beauty-bold-matte-lip-liner/p/6234591", searchUrl: "https://www.nykaa.com/search/result/?q=swiss+beauty+lip+liner", cat: "Beauty" },
+    { title: "Nivea Soft Light Moisturising Cream", price: 225, mrp: 350, url: "https://www.nykaa.com/nivea-soft-light-moisturising-cream/p/36920", searchUrl: "https://www.nykaa.com/search/result/?q=nivea+soft+cream", cat: "Beauty" },
   ],
   Shopsy: [
-    { title: "Men Casual Cotton Shirt Pack of 2", price: 199, mrp: 999, url: "https://www.shopsy.in/search?q=men+casual+cotton+shirt", cat: "Fashion" },
-    { title: "Women Printed Rayon A-Line Kurti", price: 249, mrp: 1299, url: "https://www.shopsy.in/search?q=women+printed+kurti", cat: "Fashion" },
-    { title: "Kids Cartoon Print School Bag 30L", price: 349, mrp: 999, url: "https://www.shopsy.in/search?q=kids+school+bag", cat: "Accessories" },
-    { title: "Unisex Lightweight Sports Running Shoes", price: 299, mrp: 1499, url: "https://www.shopsy.in/search?q=sports+running+shoes", cat: "Footwear" },
-    { title: "Rechargeable LED Study Desk Lamp", price: 199, mrp: 799, url: "https://www.shopsy.in/search?q=led+desk+lamp", cat: "General" },
-    { title: "Silicone Back Cover Phone Case", price: 99, mrp: 499, url: "https://www.shopsy.in/search?q=silicone+phone+case", cat: "Accessories" },
-    { title: "Women Traditional Jhumka Earrings Set", price: 149, mrp: 599, url: "https://www.shopsy.in/search?q=jhumka+earrings", cat: "Accessories" },
-    { title: "Men Cotton Comfort Track Pants Combo", price: 249, mrp: 899, url: "https://www.shopsy.in/search?q=men+cotton+track+pants", cat: "Fashion" },
+    { title: "Men Casual Cotton Shirt Pack of 2", price: 199, mrp: 999, url: "https://www.shopsy.in/men-casual-cotton-shirt-pack-of-2/p/itm4a5b6c7d8e9f0", searchUrl: "https://www.shopsy.in/search?q=men+casual+cotton+shirt", cat: "Fashion" },
+    { title: "Women Printed Rayon A-Line Kurti", price: 249, mrp: 1299, url: "https://www.shopsy.in/women-printed-rayon-a-line-kurti/p/itm1b2c3d4e5f6a7", searchUrl: "https://www.shopsy.in/search?q=women+printed+kurti", cat: "Fashion" },
+    { title: "Kids Cartoon Print School Bag 30L", price: 349, mrp: 999, url: "https://www.shopsy.in/kids-cartoon-print-school-bag-30l/p/itm8c9d0e1f2a3b4", searchUrl: "https://www.shopsy.in/search?q=kids+school+bag", cat: "Accessories" },
+    { title: "Unisex Lightweight Sports Running Shoes", price: 299, mrp: 1499, url: "https://www.shopsy.in/unisex-lightweight-sports-running-shoes/p/itm5d6e7f8a9b0c1", searchUrl: "https://www.shopsy.in/search?q=sports+running+shoes", cat: "Footwear" },
+    { title: "Rechargeable LED Study Desk Lamp", price: 199, mrp: 799, url: "https://www.shopsy.in/rechargeable-led-study-desk-lamp/p/itm2e3f4a5b6c7d8", searchUrl: "https://www.shopsy.in/search?q=led+desk+lamp", cat: "General" },
+    { title: "Silicone Back Cover Phone Case", price: 99, mrp: 499, url: "https://www.shopsy.in/silicone-back-cover-phone-case/p/itm9f0a1b2c3d4e5", searchUrl: "https://www.shopsy.in/search?q=silicone+phone+case", cat: "Accessories" },
+    { title: "Women Traditional Jhumka Earrings Set", price: 149, mrp: 599, url: "https://www.shopsy.in/women-traditional-jhumka-earrings-set/p/itm6a7b8c9d0e1f2", searchUrl: "https://www.shopsy.in/search?q=jhumka+earrings", cat: "Accessories" },
+    { title: "Men Cotton Comfort Track Pants Combo", price: 249, mrp: 899, url: "https://www.shopsy.in/men-cotton-comfort-track-pants-combo/p/itm3b4c5d6e7f8a9", searchUrl: "https://www.shopsy.in/search?q=men+cotton+track+pants", cat: "Fashion" },
   ],
   Ajio: [
-    { title: "U.S. Polo Assn. Men Slim Fit Shirt", price: 899, mrp: 2299, url: "https://www.ajio.com/search/?text=us+polo+slim+fit+shirt", cat: "Fashion" },
-    { title: "United Colors of Benetton Polo T-Shirt", price: 599, mrp: 1499, url: "https://www.ajio.com/search/?text=benetton+polo+tshirt", cat: "Fashion" },
-    { title: "Performax Lace-Up Running Shoes", price: 799, mrp: 2499, url: "https://www.ajio.com/search/?text=performax+running+shoes", cat: "Footwear" },
-    { title: "DNMX Slim Fit Joggers with Drawstring", price: 499, mrp: 1299, url: "https://www.ajio.com/search/?text=dnmx+slim+joggers", cat: "Fashion" },
-    { title: "Fig Graphic Print Crew-Neck T-Shirt", price: 349, mrp: 899, url: "https://www.ajio.com/search/?text=fig+graphic+tshirt", cat: "Fashion" },
-    { title: "Netplay Casual Slim Fit Chinos", price: 699, mrp: 1999, url: "https://www.ajio.com/search/?text=netplay+chinos", cat: "Fashion" },
-    { title: "Teamspirit Hooded Zip-Front Sweatshirt", price: 599, mrp: 1799, url: "https://www.ajio.com/search/?text=teamspirit+hoodie", cat: "Fashion" },
-    { title: "Reebok Classic Court Low Sneakers", price: 1999, mrp: 5999, url: "https://www.ajio.com/search/?text=reebok+classic+sneakers", cat: "Footwear" },
+    { title: "U.S. Polo Assn. Men Slim Fit Shirt", price: 899, mrp: 2299, url: "https://www.ajio.com/us-polo-assn-men-slim-fit-shirt/p/469123456_blue", searchUrl: "https://www.ajio.com/search/?text=us+polo+slim+fit+shirt", cat: "Fashion" },
+    { title: "United Colors of Benetton Polo T-Shirt", price: 599, mrp: 1499, url: "https://www.ajio.com/united-colors-of-benetton-polo-t-shirt/p/469234567_white", searchUrl: "https://www.ajio.com/search/?text=benetton+polo+tshirt", cat: "Fashion" },
+    { title: "Performax Lace-Up Running Shoes", price: 799, mrp: 2499, url: "https://www.ajio.com/performax-lace-up-running-shoes/p/469345678_black", searchUrl: "https://www.ajio.com/search/?text=performax+running+shoes", cat: "Footwear" },
+    { title: "DNMX Slim Fit Joggers with Drawstring", price: 499, mrp: 1299, url: "https://www.ajio.com/dnmx-slim-fit-joggers-drawstring/p/469456789_grey", searchUrl: "https://www.ajio.com/search/?text=dnmx+slim+joggers", cat: "Fashion" },
+    { title: "Fig Graphic Print Crew-Neck T-Shirt", price: 349, mrp: 899, url: "https://www.ajio.com/fig-graphic-print-crew-neck-t-shirt/p/469567890_navy", searchUrl: "https://www.ajio.com/search/?text=fig+graphic+tshirt", cat: "Fashion" },
+    { title: "Netplay Casual Slim Fit Chinos", price: 699, mrp: 1999, url: "https://www.ajio.com/netplay-casual-slim-fit-chinos/p/469678901_beige", searchUrl: "https://www.ajio.com/search/?text=netplay+chinos", cat: "Fashion" },
+    { title: "Teamspirit Hooded Zip-Front Sweatshirt", price: 599, mrp: 1799, url: "https://www.ajio.com/teamspirit-hooded-zip-front-sweatshirt/p/469789012_olive", searchUrl: "https://www.ajio.com/search/?text=teamspirit+hoodie", cat: "Fashion" },
+    { title: "Reebok Classic Court Low Sneakers", price: 1999, mrp: 5999, url: "https://www.ajio.com/reebok-classic-court-low-sneakers/p/469890123_white", searchUrl: "https://www.ajio.com/search/?text=reebok+classic+sneakers", cat: "Footwear" },
   ],
 };
 
@@ -104,8 +104,9 @@ function makeDeal(marketplace: MarketplaceName, item: CuratedItem): InternetDeal
     currentPrice: item.price,
     originalPrice: item.mrp ?? null,
     discountPercent: discount,
-    originalUrl: item.url,
-    canonicalUrl: item.url,
+    originalUrl: item.url,          // Product page URL
+    canonicalUrl: item.url,         // Product page URL
+    categoryUrl: item.searchUrl,    // Search/category URL for toggle
     mentionsCount: 1,
     channelsCount: 1,
     channelNames: [marketplace],

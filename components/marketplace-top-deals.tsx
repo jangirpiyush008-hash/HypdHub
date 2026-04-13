@@ -160,10 +160,11 @@ function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string
   );
 }
 
-export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number }) {
+export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { refreshKey?: number; isLoggedIn?: boolean }) {
   const [data, setData] = useState<DealsApiResponse | null>(null);
   const [selectedMarketplace, setSelectedMarketplace] = useState<string>("All");
   const [selectedPriceRange, setSelectedPriceRange] = useState(0);
+  const [linkMode, setLinkMode] = useState<"product" | "category">("product");
 
   useEffect(() => {
     fetch("/api/deals")
@@ -200,7 +201,9 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
   }, [allDeals, selectedMarketplace, selectedPriceRange]);
 
   function getExternalHref(deal: InternetDeal) {
-    const candidate = deal.originalUrl || deal.canonicalUrl;
+    const candidate = linkMode === "category" && deal.categoryUrl
+      ? deal.categoryUrl
+      : (deal.originalUrl || deal.canonicalUrl);
     if (!candidate) return null;
     try { return new URL(candidate).toString(); } catch { return null; }
   }
@@ -251,8 +254,33 @@ export function MarketplaceTopDeals({ refreshKey = 0 }: { refreshKey?: number })
           })}
         </div>
 
-        {/* Price range */}
-        <div className="hide-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
+        {/* Link mode toggle + Price range */}
+        <div className="hide-scrollbar -mx-1 flex items-center gap-3 overflow-x-auto px-1">
+          {isLoggedIn && (
+            <div className="flex flex-shrink-0 items-center rounded-lg bg-surface-high p-0.5">
+              <button
+                onClick={() => setLinkMode("product")}
+                className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-all ${
+                  linkMode === "product"
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                Product Link
+              </button>
+              <button
+                onClick={() => setLinkMode("category")}
+                className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-all ${
+                  linkMode === "category"
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                Category Link
+              </button>
+            </div>
+          )}
+
           {PRICE_RANGES.map((range, idx) => (
             <button
               key={range.label}

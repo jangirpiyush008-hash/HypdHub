@@ -41,7 +41,7 @@ export function DealsExperience() {
         </button>
       </div>
 
-      <MarketplaceTopDeals refreshKey={refreshKey} />
+      <MarketplaceTopDeals refreshKey={refreshKey} isLoggedIn={isAuthenticated} />
 
       {isAuthenticated ? <DealsBrowser refreshKey={refreshKey} /> : (
         <div className="rounded-xl bg-surface-card p-6 text-center">
