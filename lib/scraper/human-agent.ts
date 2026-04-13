@@ -1,6 +1,11 @@
 /**
- * Human Browser Agent — Lightweight HTTP fetcher with Chrome headers.
- * No cookie engine, no session management — just proper headers.
+ * NOVA Agent (Network-Optimized Virtual Assistant)
+ *
+ * HYPD's browser simulation engine for marketplace scraping.
+ * Sends Chrome-identical headers to bypass anti-bot detection.
+ *
+ * Usage: import { humanFetch, humanNavigate, humanDeepNavigate } from "@/lib/scraper/human-agent"
+ * Update: Ask Claude to "update NOVA agent" or "improve NOVA agent"
  */
 
 import { gunzipSync } from "zlib";

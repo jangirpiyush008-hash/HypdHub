@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { InternetDeal } from "@/lib/types";
 
 type DealsApiResponse = {
@@ -55,7 +55,6 @@ const PRICE_RANGES = [
   { label: "₹5K+", min: 5000, max: 999999 },
 ];
 
-// Marketplace branding
 const MARKETPLACE_BRANDING: Record<string, { color: string; bg: string; logoBg: string; logoFile: string; fallbackLetter: string }> = {
   Myntra: { color: "#ff3f6c", bg: "#ff3f6c15", logoBg: "#ffffff", logoFile: "/logos/myntra.png", fallbackLetter: "M" },
   Amazon: { color: "#ff9900", bg: "#ff990015", logoBg: "#ffffff", logoFile: "/logos/amazon.png", fallbackLetter: "a" },
@@ -66,7 +65,6 @@ const MARKETPLACE_BRANDING: Record<string, { color: string; bg: string; logoBg: 
   HYPD: { color: "#fb6c23", bg: "#fb6c2315", logoBg: "transparent", logoFile: "/logos/hypd.png", fallbackLetter: "H" },
 };
 
-/** Marketplace logo component — tries real logo file, falls back to styled letter */
 function MarketplaceLogo({ marketplace, size = 20 }: { marketplace: string; size?: number }) {
   const [useFallback, setUseFallback] = useState(false);
   const branding = MARKETPLACE_BRANDING[marketplace] ?? MARKETPLACE_BRANDING.HYPD;
@@ -75,12 +73,7 @@ function MarketplaceLogo({ marketplace, size = 20 }: { marketplace: string; size
     return (
       <span
         className="inline-flex flex-shrink-0 items-center justify-center rounded font-bold text-white"
-        style={{
-          width: size,
-          height: size,
-          fontSize: size * 0.55,
-          backgroundColor: branding.color,
-        }}
+        style={{ width: size, height: size, fontSize: size * 0.55, backgroundColor: branding.color }}
       >
         {branding.fallbackLetter}
       </span>
@@ -90,11 +83,7 @@ function MarketplaceLogo({ marketplace, size = 20 }: { marketplace: string; size
   return (
     <span
       className="inline-flex flex-shrink-0 items-center justify-center overflow-hidden rounded"
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: branding.logoBg,
-      }}
+      style={{ width: size, height: size, backgroundColor: branding.logoBg }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -108,7 +97,6 @@ function MarketplaceLogo({ marketplace, size = 20 }: { marketplace: string; size
   );
 }
 
-/** Decode HTML entities in deal titles */
 function decodeEntities(text: string): string {
   return text
     .replace(/&#x27;/g, "'")
@@ -124,14 +112,11 @@ function decodeEntities(text: string): string {
 function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string; marketplace: string }) {
   const [failed, setFailed] = useState(false);
 
-  // Fallback: marketplace logo with product name
   if (!src || failed) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-t-lg bg-surface-high p-4">
         <MarketplaceLogo marketplace={marketplace} size={44} />
-        <span
-          className="line-clamp-2 text-center text-[11px] font-semibold leading-tight text-muted"
-        >
+        <span className="line-clamp-2 text-center text-[11px] font-semibold leading-tight text-muted">
           {decodeEntities(alt)}
         </span>
       </div>
@@ -150,7 +135,6 @@ function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string
         className="h-full w-full rounded-t-lg object-contain p-1"
         onError={() => setFailed(true)}
       />
-      {/* Small marketplace logo badge overlay */}
       <div
         className="absolute bottom-1.5 right-1.5 rounded-md shadow-sm"
         style={{ backgroundColor: branding.logoBg === "transparent" ? undefined : "white" }}
@@ -161,18 +145,51 @@ function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string
   );
 }
 
+/** Extract a readable link label from URL */
+function getLinkLabel(url: string, marketplace: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname;
+    if (u.searchParams.has("q") || u.searchParams.has("k") || u.searchParams.has("rawQuery") || u.searchParams.has("text")) {
+      return `Search on ${marketplace}`;
+    }
+    if (path.includes("/search") || path.includes("/s?")) {
+      return `Search on ${marketplace}`;
+    }
+    if (path.includes("/sale") || path.includes("/deals") || path.includes("/offers") || path.includes("/bestsellers")) {
+      return `Browse ${marketplace}`;
+    }
+    return `Open ${marketplace}`;
+  } catch {
+    return `Open ${marketplace}`;
+  }
+}
+
 export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { refreshKey?: number; isLoggedIn?: boolean }) {
   const [data, setData] = useState<DealsApiResponse | null>(null);
   const [selectedMarketplace, setSelectedMarketplace] = useState<string>("All");
   const [selectedPriceRange, setSelectedPriceRange] = useState(0);
   const [linkMode, setLinkMode] = useState<"product" | "category">("product");
+  const [lastRefresh, setLastRefresh] = useState<string>("");
 
-  useEffect(() => {
+  const loadDeals = useCallback(() => {
     fetch("/api/deals")
       .then((res) => res.json())
-      .then((result: DealsApiResponse) => setData(result))
+      .then((result: DealsApiResponse) => {
+        setData(result);
+        setLastRefresh(new Date().toLocaleTimeString());
+      })
       .catch(() => setData(null));
-  }, [refreshKey]);
+  }, []);
+
+  // Initial load + reload on refreshKey change
+  useEffect(() => { loadDeals(); }, [refreshKey, loadDeals]);
+
+  // Auto-refresh every 2 hours
+  useEffect(() => {
+    const interval = setInterval(loadDeals, 2 * 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadDeals]);
 
   const allDeals = useMemo(() => {
     if (!data) return [];
@@ -201,13 +218,23 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
     });
   }, [allDeals, selectedMarketplace, selectedPriceRange]);
 
-  function getExternalHref(deal: InternetDeal) {
-    // In category mode, prefer categoryUrl. In product mode, prefer originalUrl.
-    const candidate = linkMode === "category" && deal.categoryUrl
-      ? deal.categoryUrl
-      : (deal.originalUrl || deal.canonicalUrl);
-    if (!candidate) return null;
-    try { return new URL(candidate).toString(); } catch { return null; }
+  /**
+   * Get the right URL based on toggle mode.
+   * Product Link → originalUrl (specific product search with HYPD params)
+   * Category Link → categoryUrl (broad category page with HYPD params)
+   */
+  function getDealUrl(deal: InternetDeal): string | null {
+    let url: string | undefined | null;
+
+    if (linkMode === "product") {
+      url = deal.originalUrl || deal.canonicalUrl;
+    } else {
+      // Category mode: use categoryUrl, fallback to originalUrl
+      url = deal.categoryUrl || deal.originalUrl || deal.canonicalUrl;
+    }
+
+    if (!url) return null;
+    try { return new URL(url).toString(); } catch { return null; }
   }
 
   if (!data) {
@@ -229,7 +256,7 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
       <div className="rounded-xl bg-surface-card p-4 space-y-3">
         {/* Link mode toggle + Marketplace tabs */}
         <div className="hide-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1">
-          {/* Product / Category toggle — always visible */}
+          {/* Product / Category toggle */}
           <div className="flex flex-shrink-0 items-center rounded-lg bg-surface-high p-0.5">
             <button
               onClick={() => setLinkMode("product")}
@@ -305,7 +332,8 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
         <p className="text-xs text-muted">
           {filteredDeals.length} deal{filteredDeals.length !== 1 ? "s" : ""} found
           {selectedMarketplace !== "All" ? ` on ${selectedMarketplace}` : ""}
-          {linkMode === "category" ? " · Category links" : " · Product links"}
+          <span className="ml-1 font-semibold">{linkMode === "category" ? "· Category links" : "· Product links"}</span>
+          {lastRefresh && <span className="ml-2 opacity-50">updated {lastRefresh}</span>}
         </p>
         {selectedMarketplace !== "All" || selectedPriceRange !== 0 ? (
           <button
@@ -325,19 +353,25 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredDeals.map((deal) => {
-            const href = getExternalHref(deal);
+            const href = getDealUrl(deal);
             const branding = MARKETPLACE_BRANDING[deal.marketplace] ?? MARKETPLACE_BRANDING.HYPD;
             const cleanTitle = decodeEntities(deal.title);
+
+            // Show what type of link this button goes to
+            const buttonLabel = linkMode === "product"
+              ? `View ${deal.title.split(" ").slice(0, 3).join(" ")}... →`
+              : `Browse ${deal.category || deal.marketplace} →`;
+
             return (
               <div key={deal.id} className="card-hover overflow-hidden rounded-xl bg-surface-card flex flex-col">
-                {/* Product image — fixed aspect ratio */}
+                {/* Product image */}
                 <div className="aspect-[4/3] w-full overflow-hidden">
                   <DealImage src={deal.imageUrl} alt={deal.title} marketplace={deal.marketplace} />
                 </div>
 
                 {/* Content */}
                 <div className="flex flex-1 flex-col p-3">
-                  {/* Marketplace badge */}
+                  {/* Marketplace badge + link type indicator */}
                   <div className="flex items-center gap-2">
                     <span
                       className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold"
@@ -349,6 +383,13 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
                     {deal.category && deal.category !== "General" && (
                       <span className="text-[10px] text-muted">{deal.category}</span>
                     )}
+                    <span className={`ml-auto rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                      linkMode === "product"
+                        ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                        : "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+                    }`}>
+                      {linkMode === "product" ? "PRODUCT" : "CATEGORY"}
+                    </span>
                   </div>
 
                   {/* Title */}
@@ -371,17 +412,25 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
                     ) : null}
                   </div>
 
-                  {/* View Deal button */}
+                  {/* Deal button — changes based on toggle */}
                   {href ? (
                     <a
                       href={href}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-opacity hover:opacity-80"
-                      style={{ backgroundColor: branding.bg, color: branding.color }}
+                      className={`mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all hover:opacity-80 ${
+                        linkMode === "product"
+                          ? "ring-1 ring-inset"
+                          : ""
+                      }`}
+                      style={{
+                        backgroundColor: linkMode === "product" ? branding.bg : branding.color + "10",
+                        color: branding.color,
+                        ...(linkMode === "product" ? { ringColor: branding.color + "30" } : {}),
+                      }}
                     >
                       <MarketplaceLogo marketplace={deal.marketplace} size={16} />
-                      {linkMode === "category" ? `Browse on ${deal.marketplace}` : `View on ${deal.marketplace}`} →
+                      {buttonLabel}
                     </a>
                   ) : null}
                 </div>

@@ -9,18 +9,61 @@ import { generateHypdConversion } from "@/lib/hypd-links";
 import { fetchCurrentHypdCreator } from "@/lib/hypd-server";
 
 const supportedMarketplaces: InternetDeal["marketplace"][] = [
-  "Myntra",
-  "Amazon",
-  "Flipkart",
-  "Shopsy",
-  "Ajio",
-  "Nykaa",
-  "HYPD"
+  "Myntra", "Amazon", "Flipkart", "Shopsy", "Ajio", "Nykaa", "HYPD"
 ];
+
+// Default category URLs per marketplace (used when deal doesn't have one)
+const MARKETPLACE_CATEGORY_URLS: Record<string, string> = {
+  Myntra: "https://www.myntra.com/shop/best-sellers",
+  Amazon: "https://www.amazon.in/gp/bestsellers",
+  Flipkart: "https://www.flipkart.com/offers-store",
+  Shopsy: "https://www.shopsy.in/deals",
+  Ajio: "https://www.ajio.com/sale",
+  Nykaa: "https://www.nykaa.com/sp/deals-page/deals",
+  HYPD: "https://hypd.store",
+};
+
+/**
+ * Ensure every deal has a categoryUrl.
+ * If missing, generate from marketplace defaults.
+ */
+function ensureCategoryUrl(deal: InternetDeal): InternetDeal {
+  if (deal.categoryUrl && deal.categoryUrl !== deal.originalUrl) return deal;
+  return {
+    ...deal,
+    categoryUrl: MARKETPLACE_CATEGORY_URLS[deal.marketplace] || deal.originalUrl,
+  };
+}
+
+/**
+ * Filter out garbage deals: no price, duplicate titles, spam titles
+ */
+function cleanDeals(deals: InternetDeal[]): InternetDeal[] {
+  const seenTitles = new Set<string>();
+  return deals.filter((deal) => {
+    // Allow HYPD deals without price
+    if (deal.marketplace === "HYPD") return true;
+
+    // Must have a price
+    if (!deal.currentPrice || deal.currentPrice <= 0) return false;
+
+    // Must have a real title (not spam)
+    if (!deal.title || deal.title.length < 5) return false;
+
+    // Skip Telegram-style spam titles
+    if (/loot\s*:/i.test(deal.title) || /at\s+\d+\.\s*$/i.test(deal.title)) return false;
+
+    // Deduplicate by normalized title
+    const key = deal.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (seenTitles.has(key)) return false;
+    seenTitles.add(key);
+
+    return true;
+  });
+}
 
 /**
  * Convert all deal URLs to HYPD affiliate links with proper UTM tracking.
- * If user is logged in, uses their username. Otherwise uses "hypdhub" as default.
  */
 function convertDealLinksToHypd(deals: InternetDeal[], creatorUsername: string): InternetDeal[] {
   return deals.map((deal) => {
@@ -31,10 +74,9 @@ function convertDealLinksToHypd(deals: InternetDeal[], creatorUsername: string):
       const conversion = generateHypdConversion(url, creatorUsername);
       if (!conversion || conversion.marketplace === "Unsupported") return deal;
 
-      // Full marketplace URL with HYPD tracking parameters
       const hypdLink = conversion.expandedLink || deal.originalUrl;
 
-      // Also convert categoryUrl if present and different
+      // Convert categoryUrl separately (it's a DIFFERENT destination)
       let convertedCategoryUrl = deal.categoryUrl;
       if (deal.categoryUrl && deal.categoryUrl !== url) {
         try {
@@ -66,10 +108,8 @@ function emptyMarketplaceBoards() {
   }, {});
 }
 
-/** Convert HYPD hot-selling products into InternetDeal format under "HYPD" marketplace */
 function hypdProductsToDeals(hypd: Awaited<ReturnType<typeof fetchHypdProducts>>): InternetDeal[] {
   if (hypd.status !== "live" || !hypd.hotSellingProducts.length) return [];
-
   const now = new Date().toISOString();
   return hypd.hotSellingProducts.map((p) => ({
     id: `hypd-${p.id}`,
@@ -96,14 +136,13 @@ function hypdProductsToDeals(hypd: Awaited<ReturnType<typeof fetchHypdProducts>>
   }));
 }
 
-// Cache deals response for 5 minutes to avoid re-fetching on every request
+// Cache deals response for 5 minutes
 let dealsCache: { data: unknown; fetchedAt: number } | null = null;
 const DEALS_CACHE_MS = 5 * 60_000;
 
 export async function GET(request: NextRequest) {
   const now = Date.now();
 
-  // Return cached response if fresh
   if (dealsCache && now - dealsCache.fetchedAt < DEALS_CACHE_MS) {
     return NextResponse.json(dealsCache.data);
   }
@@ -114,11 +153,9 @@ export async function GET(request: NextRequest) {
   const minPrice = Number(searchParams.get("minPrice") ?? "0");
   const maxPrice = Number(searchParams.get("maxPrice") ?? "999999");
 
-  // Get logged-in creator username for link conversion (fallback to "hypdhub")
   const creator = await fetchCurrentHypdCreator().catch(() => null);
   const creatorUsername = creator?.hypdUsername ?? "hypdhub";
 
-  // Fetch from all sources in parallel with individual error handling
   const [telegram, history, refresh, hypd, scraped] = await Promise.all([
     fetchTelegramDeals().catch(() => ({ deals: [] as InternetDeal[], topDealsByMarketplace: {} as Record<string, InternetDeal[]> })),
     getDealHistorySummary(),
@@ -135,13 +172,19 @@ export async function GET(request: NextRequest) {
     scrapeMarketplaceDeals().catch(() => ({ deals: [] as InternetDeal[], sources: [] as string[], scrapedAt: new Date().toISOString() }))
   ]);
 
-  // Convert HYPD trending products into deal format (under "HYPD" marketplace)
   const hypdDeals = hypdProductsToDeals(hypd);
 
-  // Merge all sources — each stays under its own marketplace
-  // Convert ALL deal links to HYPD affiliate links with proper UTM tracking
+  // 1. Merge all sources
   const rawDeals = [...telegram.deals, ...scraped.deals, ...hypdDeals];
-  const allDeals = convertDealLinksToHypd(rawDeals, creatorUsername);
+
+  // 2. Clean: remove no-price, duplicates, spam titles
+  const cleaned = cleanDeals(rawDeals);
+
+  // 3. Ensure every deal has a categoryUrl (different from originalUrl)
+  const withCategory = cleaned.map(ensureCategoryUrl);
+
+  // 4. Convert ALL URLs to HYPD affiliate links
+  const allDeals = convertDealLinksToHypd(withCategory, creatorUsername);
 
   const filteredDeals = allDeals.filter((deal) => {
     const marketplaceMatch = !marketplace || marketplace === "All" || deal.marketplace === marketplace;
@@ -150,7 +193,7 @@ export async function GET(request: NextRequest) {
     return marketplaceMatch && priceMatch;
   });
 
-  // Build top deals by marketplace
+  // Build top deals by marketplace — NO Telegram override
   const topDealsByMarketplace: Record<string, InternetDeal[]> = { ...emptyMarketplaceBoards() };
   for (const deal of allDeals) {
     if (supportedMarketplaces.includes(deal.marketplace as InternetDeal["marketplace"])) {
@@ -161,19 +204,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Sort each marketplace's deals by score and limit to top 10
+  // Sort by score and limit to top 10 per marketplace
   for (const key of Object.keys(topDealsByMarketplace)) {
     topDealsByMarketplace[key] = topDealsByMarketplace[key]
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }
-
-  // Override with Telegram data if it has more deals for a specific marketplace
-  const telegramBoards = telegram.topDealsByMarketplace;
-  for (const [key, deals] of Object.entries(telegramBoards)) {
-    if (deals.length > (topDealsByMarketplace[key]?.length ?? 0)) {
-      topDealsByMarketplace[key] = deals;
-    }
   }
 
   const responseData = {
@@ -192,6 +227,5 @@ export async function GET(request: NextRequest) {
   };
 
   dealsCache = { data: responseData, fetchedAt: now };
-
   return NextResponse.json(responseData);
 }
