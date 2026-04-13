@@ -99,70 +99,175 @@ function MarketplaceLogo({ marketplace, size = 20 }: { marketplace: string; size
 
 function decodeEntities(text: string): string {
   return text
-    .replace(/&#x27;/g, "'")
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'").replace(/&#39;/g, "'").replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)));
 }
 
-function DealImage({ src, alt, marketplace }: { src?: string | null; alt: string; marketplace: string }) {
-  const [failed, setFailed] = useState(false);
+/** Extract where a URL will take the user */
+function getDestinationLabel(url: string): string {
+  try {
+    const u = new URL(url);
+    const p = u.pathname + u.search;
+    if (u.searchParams.has("q") || u.searchParams.has("k") || u.searchParams.has("rawQuery") || u.searchParams.has("text")) {
+      const q = u.searchParams.get("q") || u.searchParams.get("k") || u.searchParams.get("rawQuery") || u.searchParams.get("text") || "";
+      return q.replace(/\+/g, " ").slice(0, 40);
+    }
+    if (p.includes("/search")) return "search results";
+    if (p.includes("/sale") || p.includes("/deals") || p.includes("/offers")) return "deals & offers";
+    if (p.includes("/men-")) return p.split("/").pop()?.replace(/-/g, " ") || "category";
+    if (p.includes("/women-")) return p.split("/").pop()?.replace(/-/g, " ") || "category";
+    const clean = u.pathname.split("/").filter(Boolean).pop() || "";
+    return clean.replace(/-/g, " ").slice(0, 30) || "marketplace";
+  } catch { return "marketplace"; }
+}
 
-  if (!src || failed) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-t-lg bg-surface-high p-4">
-        <MarketplaceLogo marketplace={marketplace} size={44} />
-        <span className="line-clamp-2 text-center text-[11px] font-semibold leading-tight text-muted">
-          {decodeEntities(alt)}
-        </span>
-      </div>
-    );
-  }
-
-  const branding = MARKETPLACE_BRANDING[marketplace] ?? MARKETPLACE_BRANDING.HYPD;
+// ─── PRODUCT CARD (single product focus) ───
+function ProductCard({ deal, branding }: { deal: InternetDeal; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const cleanTitle = decodeEntities(deal.title);
+  const href = deal.originalUrl || deal.canonicalUrl;
+  const dest = href ? getDestinationLabel(href) : "";
 
   return (
-    <div className="relative h-full w-full rounded-t-lg bg-white">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={decodeEntities(alt)}
-        loading="lazy"
-        className="h-full w-full rounded-t-lg object-contain p-1"
-        onError={() => setFailed(true)}
-      />
-      <div
-        className="absolute bottom-1.5 right-1.5 rounded-md shadow-sm"
-        style={{ backgroundColor: branding.logoBg === "transparent" ? undefined : "white" }}
-      >
-        <MarketplaceLogo marketplace={marketplace} size={22} />
+    <a
+      href={href || "#"}
+      target="_blank"
+      rel="noreferrer"
+      className="card-hover overflow-hidden rounded-xl bg-surface-card flex flex-col transition-all hover:shadow-lg group"
+    >
+      {/* Product image area */}
+      <div className="aspect-[4/3] w-full overflow-hidden">
+        {deal.imageUrl && !imgFailed ? (
+          <div className="relative h-full w-full rounded-t-lg bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={deal.imageUrl}
+              alt={cleanTitle}
+              loading="lazy"
+              className="h-full w-full rounded-t-lg object-contain p-2 group-hover:scale-105 transition-transform"
+              onError={() => setImgFailed(true)}
+            />
+            <div className="absolute bottom-1.5 right-1.5 rounded-md shadow-sm" style={{ backgroundColor: branding.logoBg === "transparent" ? undefined : "white" }}>
+              <MarketplaceLogo marketplace={deal.marketplace} size={22} />
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-t-lg bg-surface-high p-4 group-hover:bg-surface-bright transition-colors">
+            <MarketplaceLogo marketplace={deal.marketplace} size={48} />
+            <span className="line-clamp-2 text-center text-[11px] font-semibold leading-tight text-muted">{cleanTitle}</span>
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Content */}
+      <div className="flex flex-1 flex-col p-3">
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold" style={{ backgroundColor: branding.bg, color: branding.color }}>
+            <MarketplaceLogo marketplace={deal.marketplace} size={14} />
+            {deal.marketplace}
+          </span>
+          {deal.category && deal.category !== "General" && (
+            <span className="text-[10px] text-muted">{deal.category}</span>
+          )}
+        </div>
+
+        <h4 className="mt-1.5 text-sm font-bold text-text line-clamp-2 flex-1">{cleanTitle}</h4>
+
+        <div className="mt-2 flex items-center gap-2">
+          {deal.currentPrice ? (
+            <p className="font-headline text-base font-bold text-text">₹{deal.currentPrice.toLocaleString("en-IN")}</p>
+          ) : null}
+          {deal.originalPrice ? (
+            <p className="text-xs text-muted line-through">₹{deal.originalPrice.toLocaleString("en-IN")}</p>
+          ) : null}
+          {deal.discountPercent ? (
+            <span className="rounded bg-tertiary/15 px-1.5 py-0.5 text-[10px] font-bold text-tertiary">{deal.discountPercent}% off</span>
+          ) : null}
+        </div>
+
+        {/* Product link button */}
+        <div
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all group-hover:opacity-90"
+          style={{ backgroundColor: branding.color, color: "white" }}
+        >
+          <MarketplaceLogo marketplace={deal.marketplace} size={16} />
+          Buy on {deal.marketplace} →
+        </div>
+        {dest && (
+          <p className="mt-1 text-center text-[9px] text-muted truncate">→ {dest}</p>
+        )}
+      </div>
+    </a>
   );
 }
 
-/** Extract a readable link label from URL */
-function getLinkLabel(url: string, marketplace: string): string {
-  try {
-    const u = new URL(url);
-    const path = u.pathname;
-    if (u.searchParams.has("q") || u.searchParams.has("k") || u.searchParams.has("rawQuery") || u.searchParams.has("text")) {
-      return `Search on ${marketplace}`;
-    }
-    if (path.includes("/search") || path.includes("/s?")) {
-      return `Search on ${marketplace}`;
-    }
-    if (path.includes("/sale") || path.includes("/deals") || path.includes("/offers") || path.includes("/bestsellers")) {
-      return `Browse ${marketplace}`;
-    }
-    return `Open ${marketplace}`;
-  } catch {
-    return `Open ${marketplace}`;
-  }
+// ─── CATEGORY CARD (browse category focus) ───
+function CategoryCard({ deal, branding }: { deal: InternetDeal; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
+  const cleanTitle = decodeEntities(deal.title);
+  const href = deal.categoryUrl || deal.originalUrl || deal.canonicalUrl;
+  const dest = href ? getDestinationLabel(href) : "";
+  const categoryName = deal.category && deal.category !== "General" ? deal.category : deal.marketplace;
+
+  return (
+    <a
+      href={href || "#"}
+      target="_blank"
+      rel="noreferrer"
+      className="card-hover overflow-hidden rounded-xl flex flex-col transition-all hover:shadow-lg group"
+      style={{ backgroundColor: branding.bg, border: `1px solid ${branding.color}20` }}
+    >
+      {/* Category header */}
+      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+        <div className="rounded-lg p-2" style={{ backgroundColor: "white" }}>
+          <MarketplaceLogo marketplace={deal.marketplace} size={28} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: branding.color }}>
+            {deal.marketplace} · {categoryName}
+          </p>
+          <p className="text-xs font-semibold text-text mt-0.5 truncate">{cleanTitle}</p>
+        </div>
+      </div>
+
+      {/* Deal info */}
+      <div className="px-4 pb-3 flex-1">
+        <div className="flex items-center gap-2 mt-1">
+          {deal.currentPrice ? (
+            <p className="font-headline text-lg font-bold text-text">₹{deal.currentPrice.toLocaleString("en-IN")}</p>
+          ) : null}
+          {deal.originalPrice ? (
+            <p className="text-xs text-muted line-through">₹{deal.originalPrice.toLocaleString("en-IN")}</p>
+          ) : null}
+          {deal.discountPercent ? (
+            <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: branding.color + "20", color: branding.color }}>
+              {deal.discountPercent}% off
+            </span>
+          ) : null}
+        </div>
+
+        {/* Similar products hint */}
+        <p className="mt-2 text-[10px] text-muted">
+          Browse more {categoryName.toLowerCase()} deals on {deal.marketplace}
+        </p>
+      </div>
+
+      {/* Category button */}
+      <div className="px-4 pb-4">
+        <div
+          className="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all group-hover:opacity-90 border"
+          style={{ borderColor: branding.color + "40", color: branding.color, backgroundColor: "white" }}
+        >
+          <MarketplaceLogo marketplace={deal.marketplace} size={16} />
+          Browse {categoryName} →
+        </div>
+        {dest && (
+          <p className="mt-1 text-center text-[9px] text-muted truncate">→ {dest}</p>
+        )}
+      </div>
+    </a>
+  );
 }
 
 export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { refreshKey?: number; isLoggedIn?: boolean }) {
@@ -182,7 +287,6 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
       .catch(() => setData(null));
   }, []);
 
-  // Initial load + reload on refreshKey change
   useEffect(() => { loadDeals(); }, [refreshKey, loadDeals]);
 
   // Auto-refresh every 2 hours
@@ -218,25 +322,6 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
     });
   }, [allDeals, selectedMarketplace, selectedPriceRange]);
 
-  /**
-   * Get the right URL based on toggle mode.
-   * Product Link → originalUrl (specific product search with HYPD params)
-   * Category Link → categoryUrl (broad category page with HYPD params)
-   */
-  function getDealUrl(deal: InternetDeal): string | null {
-    let url: string | undefined | null;
-
-    if (linkMode === "product") {
-      url = deal.originalUrl || deal.canonicalUrl;
-    } else {
-      // Category mode: use categoryUrl, fallback to originalUrl
-      url = deal.categoryUrl || deal.originalUrl || deal.canonicalUrl;
-    }
-
-    if (!url) return null;
-    try { return new URL(url).toString(); } catch { return null; }
-  }
-
   if (!data) {
     return (
       <div className="space-y-4">
@@ -260,23 +345,23 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
           <div className="flex flex-shrink-0 items-center rounded-lg bg-surface-high p-0.5">
             <button
               onClick={() => setLinkMode("product")}
-              className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-all ${
+              className={`rounded-md px-3 py-1.5 text-[11px] font-bold transition-all ${
                 linkMode === "product"
-                  ? "bg-primary text-white shadow-sm"
+                  ? "bg-blue-600 text-white shadow-sm"
                   : "text-muted hover:text-text"
               }`}
             >
-              Product Link
+              🛒 Product Link
             </button>
             <button
               onClick={() => setLinkMode("category")}
-              className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-all ${
+              className={`rounded-md px-3 py-1.5 text-[11px] font-bold transition-all ${
                 linkMode === "category"
-                  ? "bg-primary text-white shadow-sm"
+                  ? "bg-purple-600 text-white shadow-sm"
                   : "text-muted hover:text-text"
               }`}
             >
-              Category Link
+              📂 Category Link
             </button>
           </div>
 
@@ -327,14 +412,21 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
         </div>
       </div>
 
-      {/* ── Results count ── */}
+      {/* ── Mode indicator + Results count ── */}
       <div className="flex items-center justify-between px-1">
-        <p className="text-xs text-muted">
-          {filteredDeals.length} deal{filteredDeals.length !== 1 ? "s" : ""} found
-          {selectedMarketplace !== "All" ? ` on ${selectedMarketplace}` : ""}
-          <span className="ml-1 font-semibold">{linkMode === "category" ? "· Category links" : "· Product links"}</span>
-          {lastRefresh && <span className="ml-2 opacity-50">updated {lastRefresh}</span>}
-        </p>
+        <div className="flex items-center gap-2">
+          <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${
+            linkMode === "product"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+              : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+          }`}>
+            {linkMode === "product" ? "🛒 PRODUCT MODE" : "📂 CATEGORY MODE"}
+          </span>
+          <p className="text-xs text-muted">
+            {filteredDeals.length} deal{filteredDeals.length !== 1 ? "s" : ""}
+            {selectedMarketplace !== "All" ? ` on ${selectedMarketplace}` : ""}
+          </p>
+        </div>
         {selectedMarketplace !== "All" || selectedPriceRange !== 0 ? (
           <button
             onClick={() => { setSelectedMarketplace("All"); setSelectedPriceRange(0); }}
@@ -345,97 +437,25 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
         ) : null}
       </div>
 
-      {/* ── Deal Cards Grid ── */}
+      {/* ── Deal Cards — COMPLETELY DIFFERENT layout per mode ── */}
       {filteredDeals.length === 0 ? (
         <div className="rounded-xl bg-surface-card p-8 text-center">
-          <p className="text-sm text-muted">No deals match your filters. Try a different marketplace or price range.</p>
+          <p className="text-sm text-muted">No deals match your filters.</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={`grid gap-3 ${
+          linkMode === "product"
+            ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            : "sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
+        }`}>
           {filteredDeals.map((deal) => {
-            const href = getDealUrl(deal);
             const branding = MARKETPLACE_BRANDING[deal.marketplace] ?? MARKETPLACE_BRANDING.HYPD;
-            const cleanTitle = decodeEntities(deal.title);
 
-            // Show what type of link this button goes to
-            const buttonLabel = linkMode === "product"
-              ? `View ${deal.title.split(" ").slice(0, 3).join(" ")}... →`
-              : `Browse ${deal.category || deal.marketplace} →`;
-
-            return (
-              <div key={deal.id} className="card-hover overflow-hidden rounded-xl bg-surface-card flex flex-col">
-                {/* Product image */}
-                <div className="aspect-[4/3] w-full overflow-hidden">
-                  <DealImage src={deal.imageUrl} alt={deal.title} marketplace={deal.marketplace} />
-                </div>
-
-                {/* Content */}
-                <div className="flex flex-1 flex-col p-3">
-                  {/* Marketplace badge + link type indicator */}
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold"
-                      style={{ backgroundColor: branding.bg, color: branding.color }}
-                    >
-                      <MarketplaceLogo marketplace={deal.marketplace} size={14} />
-                      {deal.marketplace}
-                    </span>
-                    {deal.category && deal.category !== "General" && (
-                      <span className="text-[10px] text-muted">{deal.category}</span>
-                    )}
-                    <span className={`ml-auto rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                      linkMode === "product"
-                        ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                        : "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
-                    }`}>
-                      {linkMode === "product" ? "PRODUCT" : "CATEGORY"}
-                    </span>
-                  </div>
-
-                  {/* Title */}
-                  <h4 className="mt-1.5 text-sm font-bold text-text line-clamp-2 flex-1">{cleanTitle}</h4>
-
-                  {/* Price + discount */}
-                  <div className="mt-2 flex items-center gap-2">
-                    {deal.currentPrice ? (
-                      <p className="font-headline text-base font-bold text-text">
-                        ₹{deal.currentPrice.toLocaleString("en-IN")}
-                      </p>
-                    ) : null}
-                    {deal.originalPrice ? (
-                      <p className="text-xs text-muted line-through">₹{deal.originalPrice.toLocaleString("en-IN")}</p>
-                    ) : null}
-                    {deal.discountPercent ? (
-                      <span className="rounded bg-tertiary/15 px-1.5 py-0.5 text-[10px] font-bold text-tertiary">
-                        {deal.discountPercent}% off
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {/* Deal button — changes based on toggle */}
-                  {href ? (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all hover:opacity-80 ${
-                        linkMode === "product"
-                          ? "ring-1 ring-inset"
-                          : ""
-                      }`}
-                      style={{
-                        backgroundColor: linkMode === "product" ? branding.bg : branding.color + "10",
-                        color: branding.color,
-                        ...(linkMode === "product" ? { ringColor: branding.color + "30" } : {}),
-                      }}
-                    >
-                      <MarketplaceLogo marketplace={deal.marketplace} size={16} />
-                      {buttonLabel}
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-            );
+            if (linkMode === "product") {
+              return <ProductCard key={deal.id} deal={deal} branding={branding} />;
+            } else {
+              return <CategoryCard key={deal.id} deal={deal} branding={branding} />;
+            }
           })}
         </div>
       )}
