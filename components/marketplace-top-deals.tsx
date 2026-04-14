@@ -207,7 +207,8 @@ function ProductCard({ deal, branding }: { deal: InternetDeal; branding: typeof 
 
 // ─── CATEGORY CARD (browse category focus) ───
 function CategoryCard({ deal, branding }: { deal: InternetDeal; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
-  const cleanTitle = decodeEntities(deal.title);
+  // Use categoryTitle if available (e.g. "Men Jeans under ₹700"), else fallback
+  const displayTitle = deal.categoryTitle || decodeEntities(deal.title);
   const href = deal.categoryUrl || deal.originalUrl || deal.canonicalUrl;
   const dest = href ? getDestinationLabel(href) : "";
   const categoryName = deal.category && deal.category !== "General" ? deal.category : deal.marketplace;
@@ -229,7 +230,7 @@ function CategoryCard({ deal, branding }: { deal: InternetDeal; branding: typeof
           <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: branding.color }}>
             {deal.marketplace} · {categoryName}
           </p>
-          <p className="text-xs font-semibold text-text mt-0.5 truncate">{cleanTitle}</p>
+          <p className="text-xs font-semibold text-text mt-0.5 truncate">{displayTitle}</p>
         </div>
       </div>
 
