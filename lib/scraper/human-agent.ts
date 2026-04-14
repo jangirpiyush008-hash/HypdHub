@@ -215,8 +215,15 @@ export type ResolvedProduct = {
  * Step 1: Fetch search page → extract first product link + image
  * Step 2: If no image, fetch product page → extract og:image
  */
-export async function resolveProduct(searchUrl: string): Promise<ResolvedProduct> {
+export async function resolveProduct(searchUrl: string, marketplace?: string): Promise<ResolvedProduct> {
   try {
+    // If marketplace is explicitly provided, use it (handles cases where URL host doesn't match)
+    if (marketplace) {
+      const mp = marketplace.toLowerCase();
+      if (mp === "shopsy") return resolveShopsy(searchUrl);
+      if (mp === "ajio") return resolveAjio(searchUrl);
+    }
+
     const host = new URL(searchUrl).hostname.toLowerCase();
 
     if (host.includes("myntra")) return resolveMyntra(searchUrl);
@@ -338,24 +345,46 @@ async function resolveFlipkart(searchUrl: string): Promise<ResolvedProduct> {
 }
 
 // ─── SHOPSY ───
-// Similar to Flipkart but on shopsy.in domain
+// Direct shopsy.in returns empty CSR HTML. Use Flipkart with marketplace=SHOPSY param.
 async function resolveShopsy(searchUrl: string): Promise<ResolvedProduct> {
-  const res = await humanFetch({ url: searchUrl, timeout: 12000 });
+  // Extract query from shopsy URL
+  const u = new URL(searchUrl);
+  const query = u.searchParams.get("q") || u.searchParams.get("text") || u.searchParams.get("rawQuery") || "";
+
+  // If no query, try to extract from URL path
+  let searchQuery = query;
+  if (!searchQuery) {
+    const pathParts = u.pathname.split("/").filter(Boolean);
+    searchQuery = pathParts.join(" ").replace(/-/g, " ");
+  }
+  if (!searchQuery) return { productUrl: null, imageUrl: null, resolvedTitle: null };
+
+  // Use Flipkart search with marketplace=SHOPSY parameter
+  const flipkartUrl = `https://www.flipkart.com/search?q=${encodeURIComponent(searchQuery)}&marketplace=SHOPSY`;
+  const res = await humanFetch({ url: flipkartUrl, timeout: 12000 });
   if (!res.ok) return { productUrl: null, imageUrl: null, resolvedTitle: null };
 
   const html = res.text;
 
+  // Extract first product link (/p/itm pattern)
   const linkMatch = html.match(/href="(\/[^"]*\/p\/itm[^"]+)"/);
   const productUrl = linkMatch ? `https://www.shopsy.in${linkMatch[1].replace(/&amp;/g, "&")}` : null;
 
-  const imgMatch = html.match(/src="(https:\/\/rukminim[12][^"]+)"/);
-  let imageUrl = imgMatch?.[1] ?? null;
+  // Extract product images (skip banners — they tend to be wider/landscape)
+  const allImgs = [...html.matchAll(/src="(https:\/\/rukminim[12][^"]+)"/g)]
+    .map(m => m[1])
+    .filter(u => !u.includes("banner") && !u.includes("desktop") && !u.includes("offer"));
+
+  let imageUrl = allImgs.length > 0 ? allImgs[0] : null;
   if (imageUrl) imageUrl = imageUrl.replace(/\/\d+\/\d+\//, "/416/416/");
+
+  // Title
+  const titleMatch = html.match(/class="[^"]*KzDlHZ[^"]*"[^>]*>([^<]+)/);
 
   return {
     productUrl,
     imageUrl,
-    resolvedTitle: null,
+    resolvedTitle: titleMatch?.[1]?.trim() ?? null,
   };
 }
 
@@ -387,52 +416,101 @@ async function resolveNykaa(searchUrl: string): Promise<ResolvedProduct> {
 }
 
 // ─── AJIO ───
-// Search page renders client-side. Try fetching the API directly.
+// Client-side rendered. Use Ajio API v2 at /api/search with JSON format.
 async function resolveAjio(searchUrl: string): Promise<ResolvedProduct> {
-  // Ajio uses client-side rendering, try their internal API
   const u = new URL(searchUrl);
-  const query = u.searchParams.get("text") || "";
-  if (!query) return { productUrl: null, imageUrl: null, resolvedTitle: null };
+  // Extract query from multiple possible params
+  const query = u.searchParams.get("text") || u.searchParams.get("query")
+    || u.searchParams.get("q") || u.searchParams.get("rawQuery") || "";
 
-  const apiUrl = `https://www.ajio.com/api/search?text=${encodeURIComponent(query)}&curated=true&curatedid=&gridColumns=3&from=0&size=1`;
+  // Also try extracting from path like /search/q-us polo assn
+  let searchQuery = query;
+  if (!searchQuery) {
+    const pathMatch = u.pathname.match(/\/search\/q-([^/]+)/i);
+    if (pathMatch) searchQuery = decodeURIComponent(pathMatch[1].replace(/-/g, " "));
+  }
+  if (!searchQuery) return { productUrl: null, imageUrl: null, resolvedTitle: null };
+
+  // Ajio API v2 — returns JSON with product data
+  const apiUrl = `https://www.ajio.com/api/search?fields=SITE&currentPage=0&pageSize=1&format=json&query=${encodeURIComponent(searchQuery)}&sortBy=relevance`;
   const res = await humanFetch({
     url: apiUrl,
+    acceptJson: true,
+    timeout: 12000,
+    referer: "https://www.ajio.com/",
+    extraHeaders: {
+      "x-requested-with": "XMLHttpRequest",
+    },
+  });
+
+  if (res.ok && res.text.length > 50) {
+    try {
+      const data = JSON.parse(res.text);
+      const products = data?.products || data?.searchEntries || data?.results || [];
+      if (products.length > 0) {
+        const first = products[0];
+
+        // Product URL — various possible fields
+        const urlPath = first.url || first.urlKey || first.modelUrl || first.pdpUrl || "";
+        const productUrl = urlPath ? `https://www.ajio.com${urlPath.startsWith("/") ? "" : "/"}${urlPath}` : null;
+
+        // Image — various possible fields
+        let imageUrl: string | null = null;
+        if (first.fnlColorVariantData?.colorVariantImages?.[0]) {
+          imageUrl = first.fnlColorVariantData.colorVariantImages[0];
+        } else if (first.images?.[0]?.url) {
+          imageUrl = `https://assets.ajio.com/medias/${first.images[0].url}`;
+        } else if (first.imageUrl) {
+          imageUrl = first.imageUrl;
+        } else if (first.img) {
+          imageUrl = first.img;
+        }
+        // Ensure https
+        if (imageUrl && !imageUrl.startsWith("http")) {
+          imageUrl = `https://assets.ajio.com/medias/${imageUrl}`;
+        }
+
+        return {
+          productUrl,
+          imageUrl,
+          resolvedTitle: first.name || first.fnlColorVariantData?.productName || null,
+        };
+      }
+    } catch { /* fall through */ }
+  }
+
+  // Fallback: try the older API format
+  const apiUrlV1 = `https://www.ajio.com/api/search?text=${encodeURIComponent(searchQuery)}&curated=true&curatedid=&gridColumns=3&from=0&size=1`;
+  const resV1 = await humanFetch({
+    url: apiUrlV1,
     acceptJson: true,
     timeout: 10000,
     referer: searchUrl,
   });
 
-  if (!res.ok) {
-    // Fallback: fetch HTML page
-    const htmlRes = await humanFetch({ url: searchUrl, timeout: 12000 });
-    if (!htmlRes.ok) return { productUrl: null, imageUrl: null, resolvedTitle: null };
+  if (resV1.ok) {
+    try {
+      const data = JSON.parse(resV1.text);
+      const products = data?.products || [];
+      if (products.length > 0) {
+        const first = products[0];
+        const productUrl = first.url ? `https://www.ajio.com${first.url}` : null;
+        const imageUrl = first.images?.[0]?.url
+          ? `https://assets.ajio.com/medias/${first.images[0].url}`
+          : null;
+        return { productUrl, imageUrl, resolvedTitle: first.name ?? null };
+      }
+    } catch { /* fall through */ }
+  }
+
+  // Final fallback: fetch HTML page for og:image
+  const htmlRes = await humanFetch({ url: searchUrl, timeout: 12000 });
+  if (htmlRes.ok) {
     const ogImg = htmlRes.text.match(/property="og:image"\s*content="([^"]+)"/);
-    return {
-      productUrl: null,
-      imageUrl: ogImg?.[1] ?? null,
-      resolvedTitle: null,
-    };
+    return { productUrl: null, imageUrl: ogImg?.[1] ?? null, resolvedTitle: null };
   }
 
-  try {
-    const data = JSON.parse(res.text);
-    const products = data?.products || [];
-    if (products.length === 0) return { productUrl: null, imageUrl: null, resolvedTitle: null };
-
-    const first = products[0];
-    const productUrl = first.url ? `https://www.ajio.com${first.url}` : null;
-    const imageUrl = first.images?.[0]?.url
-      ? `https://assets.ajio.com/medias/${first.images[0].url}`
-      : null;
-
-    return {
-      productUrl,
-      imageUrl,
-      resolvedTitle: first.name ?? null,
-    };
-  } catch {
-    return { productUrl: null, imageUrl: null, resolvedTitle: null };
-  }
+  return { productUrl: null, imageUrl: null, resolvedTitle: null };
 }
 
 /**

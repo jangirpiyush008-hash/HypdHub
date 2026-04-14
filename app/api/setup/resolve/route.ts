@@ -50,7 +50,7 @@ export async function POST() {
     // Process deals one at a time with delays to avoid rate limiting
     for (const deal of deals) {
       try {
-        const result = await resolveProduct(deal.product_url);
+        const result = await resolveProduct(deal.product_url, deal.marketplace);
 
         const updates: Record<string, string | null> = {};
 

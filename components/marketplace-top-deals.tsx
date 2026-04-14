@@ -126,17 +126,12 @@ function getDestinationLabel(url: string): string {
 }
 
 // ─── PRODUCT CARD (single product focus) ───
-function ProductCard({ deal, branding }: { deal: InternetDeal; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
+function ProductCard({ deal, branding, isLoggedIn }: { deal: InternetDeal; branding: typeof MARKETPLACE_BRANDING["Myntra"]; isLoggedIn: boolean }) {
   const [imgFailed, setImgFailed] = useState(false);
   const cleanTitle = decodeEntities(deal.title);
-  const href = deal.originalUrl || deal.canonicalUrl;
-  const dest = href ? getDestinationLabel(href) : "";
 
   return (
-    <a
-      href={href || "#"}
-      target="_blank"
-      rel="noreferrer"
+    <div
       className="card-hover overflow-hidden rounded-xl bg-surface-card flex flex-col transition-all hover:shadow-lg group"
     >
       {/* Product image area */}
@@ -189,35 +184,25 @@ function ProductCard({ deal, branding }: { deal: InternetDeal; branding: typeof 
           ) : null}
         </div>
 
-        {/* Product link button */}
-        <div
-          className="mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all group-hover:opacity-90"
-          style={{ backgroundColor: branding.color, color: "white" }}
-        >
-          <MarketplaceLogo marketplace={deal.marketplace} size={16} />
-          Buy on {deal.marketplace} →
+        {/* Action buttons */}
+        {/* Action buttons */}
+        <div className="mt-3 flex items-center gap-2">
+          <ShareLinkButton deal={deal} isLoggedIn={isLoggedIn} branding={branding} />
+          <BuyNowButton deal={deal} branding={branding} />
         </div>
-        {dest && (
-          <p className="mt-1 text-center text-[9px] text-muted truncate">→ {dest}</p>
-        )}
       </div>
-    </a>
+    </div>
   );
 }
 
 // ─── CATEGORY CARD (browse category focus) ───
-function CategoryCard({ deal, branding }: { deal: InternetDeal; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
+function CategoryCard({ deal, branding, isLoggedIn }: { deal: InternetDeal; branding: typeof MARKETPLACE_BRANDING["Myntra"]; isLoggedIn: boolean }) {
   // Use categoryTitle if available (e.g. "Men Jeans under ₹700"), else fallback
   const displayTitle = deal.categoryTitle || decodeEntities(deal.title);
-  const href = deal.categoryUrl || deal.originalUrl || deal.canonicalUrl;
-  const dest = href ? getDestinationLabel(href) : "";
   const categoryName = deal.category && deal.category !== "General" ? deal.category : deal.marketplace;
 
   return (
-    <a
-      href={href || "#"}
-      target="_blank"
-      rel="noreferrer"
+    <div
       className="card-hover overflow-hidden rounded-xl flex flex-col transition-all hover:shadow-lg group"
       style={{ backgroundColor: branding.bg, border: `1px solid ${branding.color}20` }}
     >
@@ -256,20 +241,77 @@ function CategoryCard({ deal, branding }: { deal: InternetDeal; branding: typeof
         </p>
       </div>
 
-      {/* Category button */}
-      <div className="px-4 pb-4">
-        <div
-          className="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all group-hover:opacity-90 border"
-          style={{ borderColor: branding.color + "40", color: branding.color, backgroundColor: "white" }}
-        >
-          <MarketplaceLogo marketplace={deal.marketplace} size={16} />
-          Browse {categoryName} →
-        </div>
-        {dest && (
-          <p className="mt-1 text-center text-[9px] text-muted truncate">→ {dest}</p>
-        )}
+      {/* Action buttons */}
+      <div className="px-4 pb-4 flex items-center gap-2">
+        <ShareLinkButton deal={deal} isLoggedIn={isLoggedIn} branding={branding} />
+        <BuyNowButton deal={deal} branding={branding} />
       </div>
-    </a>
+    </div>
+  );
+}
+
+function ShareLinkButton({ deal, isLoggedIn, branding }: { deal: InternetDeal; isLoggedIn: boolean; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
+  const [copied, setCopied] = useState(false);
+  const href = deal.originalUrl || deal.canonicalUrl;
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isLoggedIn) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (href) {
+      navigator.clipboard.writeText(href).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  };
+
+  return (
+    <button
+      onClick={handleShare}
+      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all hover:opacity-80 border"
+      style={{ borderColor: branding.color + "40", color: branding.color, backgroundColor: "transparent" }}
+    >
+      {copied ? (
+        <>
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+          Copied!
+        </>
+      ) : (
+        <>
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+          {isLoggedIn ? "Share Link" : "Login to Share"}
+        </>
+      )}
+    </button>
+  );
+}
+
+function BuyNowButton({ deal, branding }: { deal: InternetDeal; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
+  const href = deal.originalUrl || deal.canonicalUrl;
+
+  const handleBuy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (href) {
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <button
+      onClick={handleBuy}
+      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all hover:opacity-90"
+      style={{ backgroundColor: branding.color, color: "white" }}
+    >
+      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" /></svg>
+      Buy Now
+    </button>
   );
 }
 
@@ -455,9 +497,9 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
             const branding = MARKETPLACE_BRANDING[deal.marketplace] ?? MARKETPLACE_BRANDING.HYPD;
 
             if (linkMode === "product") {
-              return <ProductCard key={deal.id} deal={deal} branding={branding} />;
+              return <ProductCard key={deal.id} deal={deal} branding={branding} isLoggedIn={!!data?.isLoggedIn} />;
             } else {
-              return <CategoryCard key={deal.id} deal={deal} branding={branding} />;
+              return <CategoryCard key={deal.id} deal={deal} branding={branding} isLoggedIn={!!data?.isLoggedIn} />;
             }
           })}
         </div>
