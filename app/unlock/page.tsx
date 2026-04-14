@@ -1,21 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 export default function UnlockPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
-  const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  const handleUnlock = (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === "123456") {
-      document.cookie = `site_unlocked=${password}; path=/; max-age=${60 * 60 * 24 * 30}`;
-      router.push("/");
-    } else {
+    setLoading(true);
+    setError(false);
+
+    try {
+      const res = await fetch("/api/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+
+      if (res.ok) {
+        // Cookie is set by the server response — just redirect
+        window.location.href = "/";
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 2000);
+      }
+    } catch {
       setError(true);
-      setTimeout(() => setError(false), 2000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,9 +62,10 @@ export default function UnlockPage() {
           {error && <p className="text-xs text-red-400 text-center">Wrong password. Try again.</p>}
           <button
             type="submit"
-            className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 py-3 text-sm font-bold text-white shadow-lg transition-all hover:from-orange-600 hover:to-orange-700 active:scale-[0.98]"
+            disabled={loading}
+            className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 py-3 text-sm font-bold text-white shadow-lg transition-all hover:from-orange-600 hover:to-orange-700 active:scale-[0.98] disabled:opacity-50"
           >
-            Unlock
+            {loading ? "Unlocking..." : "Unlock"}
           </button>
         </form>
       </div>
