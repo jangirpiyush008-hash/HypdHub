@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchCurrentHypdCreator, convertHypdMarketplaceLink } from "@/lib/hypd-server";
 import { generateHypdConversion } from "@/lib/hypd-links";
+import { cleanUrlForHypd } from "@/lib/url-cleaner";
 
 function buildCommissionSource(payload: Record<string, unknown>) {
   const commission = String(
@@ -19,9 +20,9 @@ function buildCommissionSource(payload: Record<string, unknown>) {
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { sourceUrl?: string } | null;
-  const sourceUrl = body?.sourceUrl?.trim() ?? "";
+  const rawUrl = body?.sourceUrl?.trim() ?? "";
 
-  if (!sourceUrl) {
+  if (!rawUrl) {
     return NextResponse.json(
       {
         ok: false,
@@ -43,7 +44,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const localConversion = generateHypdConversion(sourceUrl, creator.hypdUsername);
+  // Step 1: Unwrap competitor short links (wishlink, earnkaro, etc.) and strip
+  // their tracking params so we start from a clean marketplace URL.
+  const cleanedUrl = await cleanUrlForHypd(rawUrl);
+
+  const localConversion = generateHypdConversion(cleanedUrl, creator.hypdUsername);
 
   if (!localConversion) {
     return NextResponse.json(
@@ -58,23 +63,31 @@ export async function POST(request: NextRequest) {
   if (localConversion.marketplace === "HYPD Store") {
     return NextResponse.json({
       ok: true,
-      result: localConversion
+      result: { ...localConversion, sourceUrl: rawUrl }
     });
   }
 
   try {
-    const payload = (await convertHypdMarketplaceLink(sourceUrl, creator)) as Record<string, unknown>;
+    const payload = (await convertHypdMarketplaceLink(cleanedUrl, creator)) as Record<string, unknown>;
+    const shortLink = String(payload.hypd_link ?? localConversion.shortLink);
+
+    // IMPORTANT: use our locally-built expandedLink (cleaned marketplace URL +
+    // HYPD params) rather than echoing back payload.product_link — otherwise
+    // the "Full Link" can still contain competitor tracking when HYPD's backend
+    // echoes the input verbatim.
+    const expandedLink = localConversion.expandedLink;
 
     return NextResponse.json({
       ok: true,
       result: {
         ...localConversion,
-        shortLink: String(payload.hypd_link ?? localConversion.shortLink),
-        expandedLink: String(payload.product_link ?? payload.original_link ?? sourceUrl),
+        sourceUrl: rawUrl,
+        shortLink,
+        expandedLink,
         commissionSource: buildCommissionSource(payload),
         notes: [
           `Converted live through HYPD for ${localConversion.marketplace}.`,
-          "This short link came from the real HYPD creator conversion flow."
+          "Short link from HYPD API. Full link is the cleaned marketplace URL with HYPD affiliate params."
         ]
       }
     });

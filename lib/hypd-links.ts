@@ -1,3 +1,5 @@
+import { cleanUrlForHypdSync, extractMarketplaceFromDeepLink, stripCompetitorParams } from "./url-cleaner";
+
 const HYPD_HOSTS = new Set(["hypd.store", "www.hypd.store"]);
 
 type Marketplace =
@@ -233,7 +235,11 @@ export function generateHypdConversion(sourceUrl: string, creatorUsername: strin
   }
 
   try {
-    const url = new URL(input);
+    // Clean competitor/affiliate params & unwrap deep_link_value before building HYPD URL.
+    // (Sync variant — does not follow HTTP redirects; callers handling competitor short
+    // links like wishlink.com/share/xyz should pre-resolve via cleanUrlForHypd.)
+    const cleaned = cleanUrlForHypdSync(input);
+    const url = new URL(cleaned);
     const marketplace = detectMarketplace(url);
 
     if (marketplace === "HYPD Store") {
@@ -257,3 +263,6 @@ export function generateHypdConversion(sourceUrl: string, creatorUsername: strin
     return null;
   }
 }
+
+// Re-export for convenience so callers can clean URLs without importing url-cleaner separately.
+export { cleanUrlForHypdSync, extractMarketplaceFromDeepLink, stripCompetitorParams };

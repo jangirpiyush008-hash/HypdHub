@@ -48,6 +48,7 @@ export type InternetDeal = {
   validatedTitle?: string | null;
   categoryUrl?: string | null;
   categoryTitle?: string | null;
+  affiliateShortLink?: string | null;
   stockStatus?: "in_stock" | "out_of_stock" | "unknown";
   sourceEvidence?: string[];
   confidenceScore?: number;

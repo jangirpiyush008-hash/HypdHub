@@ -59,10 +59,14 @@ function convertDealLinksToHypd(deals: InternetDeal[], creatorUsername: string):
     if (!url) return deal;
 
     try {
+      // generateHypdConversion now internally cleans competitor params via
+      // cleanUrlForHypdSync, so the expanded link will be free of wishlink
+      // / earnkaro / etc. junk.
       const conversion = generateHypdConversion(url, creatorUsername);
       if (!conversion || conversion.marketplace === "Unsupported") return deal;
 
       const hypdLink = conversion.expandedLink || deal.originalUrl;
+      const shortLink = conversion.shortLink || hypdLink;
 
       let convertedCategoryUrl = deal.categoryUrl;
       if (deal.categoryUrl && deal.categoryUrl !== url) {
@@ -80,6 +84,7 @@ function convertDealLinksToHypd(deals: InternetDeal[], creatorUsername: string):
         ...deal,
         canonicalUrl: hypdLink,
         originalUrl: hypdLink,
+        affiliateShortLink: shortLink,
         categoryUrl: convertedCategoryUrl,
       };
     } catch {

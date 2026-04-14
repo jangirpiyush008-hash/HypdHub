@@ -251,10 +251,9 @@ function CategoryCard({ deal, branding, isLoggedIn }: { deal: InternetDeal; bran
 }
 
 function ShareLinkButton({ deal, isLoggedIn, branding }: { deal: InternetDeal; isLoggedIn: boolean; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
-  const [copied, setCopied] = useState(false);
-  const href = deal.originalUrl || deal.canonicalUrl;
+  const [state, setState] = useState<"idle" | "loading" | "copied" | "error">("idle");
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -263,25 +262,56 @@ function ShareLinkButton({ deal, isLoggedIn, branding }: { deal: InternetDeal; i
       return;
     }
 
-    if (href) {
-      navigator.clipboard.writeText(href).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+    const sourceUrl = deal.originalUrl || deal.canonicalUrl;
+    if (!sourceUrl) return;
+
+    setState("loading");
+    try {
+      // Hit the same endpoint the converter page uses — ensures the copied
+      // link exactly matches what /converter would produce for this URL.
+      const res = await fetch("/api/hypd/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceUrl }),
       });
+      const data = await res.json();
+      const shareUrl = data?.result?.shortLink || deal.affiliateShortLink || sourceUrl;
+      await navigator.clipboard.writeText(shareUrl);
+      setState("copied");
+      setTimeout(() => setState("idle"), 2000);
+    } catch {
+      // Fallback to whatever link the API gave us on the deal itself
+      const fallback = deal.affiliateShortLink || sourceUrl;
+      try {
+        await navigator.clipboard.writeText(fallback);
+        setState("copied");
+        setTimeout(() => setState("idle"), 2000);
+      } catch {
+        setState("error");
+        setTimeout(() => setState("idle"), 2000);
+      }
     }
   };
 
   return (
     <button
       onClick={handleShare}
-      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all hover:opacity-80 border"
+      disabled={state === "loading"}
+      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all hover:opacity-80 border disabled:opacity-60"
       style={{ borderColor: branding.color + "40", color: branding.color, backgroundColor: "transparent" }}
     >
-      {copied ? (
+      {state === "copied" ? (
         <>
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           Copied!
         </>
+      ) : state === "loading" ? (
+        <>
+          <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          Getting link...
+        </>
+      ) : state === "error" ? (
+        <>Failed — try again</>
       ) : (
         <>
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
