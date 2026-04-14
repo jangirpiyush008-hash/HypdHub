@@ -17,7 +17,7 @@ let memoryCache: CacheData | null = null;
 
 interface CacheEntry {
   deals: InternetDeal[];
-  source: "live" | "curated";
+  source: "live" | "curated" | "curated+images";
   scrapedAt: string;
   strategy?: string;
 }

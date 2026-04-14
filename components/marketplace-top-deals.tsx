@@ -6,6 +6,8 @@ import { InternetDeal } from "@/lib/types";
 type DealsApiResponse = {
   generatedAt: string;
   refreshWindowHours: number;
+  isLoggedIn?: boolean;
+  creatorUsername?: string;
   telegramDealsCount: number;
   validatedDealsCount: number;
   history: {
@@ -457,6 +459,32 @@ export function MarketplaceTopDeals({ refreshKey = 0, isLoggedIn = false }: { re
               return <CategoryCard key={deal.id} deal={deal} branding={branding} />;
             }
           })}
+        </div>
+      )}
+
+      {/* Login prompt for more deals */}
+      {!isLoggedIn && filteredDeals.length > 0 && (
+        <div className="rounded-xl bg-gradient-to-r from-primary/10 via-secondary/10 to-tertiary/10 p-6 text-center border border-primary/20">
+          <h3 className="font-headline text-lg font-bold text-text">
+            Login to see 10+ deals per marketplace
+          </h3>
+          <p className="mt-1 text-sm text-muted">
+            Get personalized affiliate links with your HYPD creator account
+          </p>
+          <a
+            href="/login"
+            className="mt-3 inline-block rounded-lg bg-cta-gradient px-6 py-2.5 text-sm font-bold text-white shadow-glow"
+          >
+            Login with HYPD
+          </a>
+        </div>
+      )}
+
+      {/* Creator badge when logged in */}
+      {isLoggedIn && data?.creatorUsername && (
+        <div className="flex items-center justify-center gap-2 rounded-lg bg-tertiary/10 px-4 py-2 text-xs">
+          <span className="h-2 w-2 rounded-full bg-tertiary" />
+          <span className="font-semibold text-tertiary">Affiliate links for @{data.creatorUsername}</span>
         </div>
       )}
     </div>

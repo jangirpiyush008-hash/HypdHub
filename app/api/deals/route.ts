@@ -136,16 +136,14 @@ function hypdProductsToDeals(hypd: Awaited<ReturnType<typeof fetchHypdProducts>>
   }));
 }
 
-// Cache deals response for 5 minutes
-let dealsCache: { data: unknown; fetchedAt: number } | null = null;
+// Cache raw deals (before link conversion) for 5 minutes
+let rawDealsCache: { deals: InternetDeal[]; extras: Record<string, unknown>; fetchedAt: number } | null = null;
+// Cache converted deals per creator username for 5 minutes
+const convertedCache = new Map<string, { data: unknown; fetchedAt: number }>();
 const DEALS_CACHE_MS = 5 * 60_000;
 
 export async function GET(request: NextRequest) {
   const now = Date.now();
-
-  if (dealsCache && now - dealsCache.fetchedAt < DEALS_CACHE_MS) {
-    return NextResponse.json(dealsCache.data);
-  }
 
   await ensureAutomaticRefresh("api-deals");
   const { searchParams } = new URL(request.url);
@@ -155,6 +153,13 @@ export async function GET(request: NextRequest) {
 
   const creator = await fetchCurrentHypdCreator().catch(() => null);
   const creatorUsername = creator?.hypdUsername ?? "hypdhub";
+
+  // Check per-creator cache
+  const creatorCacheKey = `${creatorUsername}:${marketplace ?? "All"}:${minPrice}:${maxPrice}`;
+  const cached = convertedCache.get(creatorCacheKey);
+  if (cached && now - cached.fetchedAt < DEALS_CACHE_MS) {
+    return NextResponse.json(cached.data);
+  }
 
   const [telegram, history, refresh, hypd, scraped] = await Promise.all([
     fetchTelegramDeals().catch(() => ({ deals: [] as InternetDeal[], topDealsByMarketplace: {} as Record<string, InternetDeal[]> })),
@@ -204,16 +209,22 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Sort by score and limit to top 10 per marketplace
+  // Determine deal limit: logged-in creators get 10, anonymous gets 3
+  const isLoggedIn = creatorUsername !== "hypdhub";
+  const dealsPerMarketplace = isLoggedIn ? 10 : 3;
+
+  // Sort by score and limit per marketplace
   for (const key of Object.keys(topDealsByMarketplace)) {
     topDealsByMarketplace[key] = topDealsByMarketplace[key]
       .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
+      .slice(0, dealsPerMarketplace);
   }
 
   const responseData = {
     generatedAt: new Date().toISOString(),
     refreshWindowHours: 2,
+    isLoggedIn,
+    creatorUsername,
     deals: filteredDeals,
     topDealsByMarketplace,
     telegramDealsCount: telegram.deals.length,
@@ -226,6 +237,6 @@ export async function GET(request: NextRequest) {
     hypd
   };
 
-  dealsCache = { data: responseData, fetchedAt: now };
+  convertedCache.set(creatorCacheKey, { data: responseData, fetchedAt: now });
   return NextResponse.json(responseData);
 }

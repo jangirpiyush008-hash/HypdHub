@@ -19,12 +19,25 @@ interface CuratedItem {
   productUrl: string;    // Specific product search
   categoryUrl: string;   // Broad category page
   cat?: string;
+  img?: string;          // Product thumbnail image URL
 }
+
+// Category-specific placeholder thumbnails (SVG data URIs for instant loading)
+// These show product category icons until real images are resolved in background
+const CATEGORY_THUMBNAILS: Record<string, string> = {
+  Fashion: "https://img.icons8.com/fluency/200/clothes.png",
+  Footwear: "https://img.icons8.com/fluency/200/running-shoe.png",
+  Electronics: "https://img.icons8.com/fluency/200/electronics.png",
+  Beauty: "https://img.icons8.com/fluency/200/cosmetics.png",
+  "Home & Kitchen": "https://img.icons8.com/fluency/200/kitchen.png",
+  Accessories: "https://img.icons8.com/fluency/200/jewelry.png",
+  General: "https://img.icons8.com/fluency/200/shopping-bag.png",
+};
 
 const CURATED: Record<MarketplaceName, CuratedItem[]> = {
   Myntra: [
-    { title: "Roadster Men Solid Round Neck T-Shirt", price: 299, mrp: 599, productUrl: "https://www.myntra.com/tshirts?rawQuery=roadster+men+solid+round+neck+t-shirt&sort=popularity", categoryUrl: "https://www.myntra.com/men-tshirts", cat: "Fashion" },
-    { title: "HRX by Hrithik Roshan Running Shoes", price: 1499, mrp: 2999, productUrl: "https://www.myntra.com/sports-shoes?rawQuery=hrx+by+hrithik+roshan+running+shoes&sort=popularity", categoryUrl: "https://www.myntra.com/men-sports-shoes", cat: "Footwear" },
+    { title: "Roadster Men Solid Round Neck T-Shirt", price: 299, mrp: 599, productUrl: "https://www.myntra.com/tshirts?rawQuery=roadster+men+solid+round+neck+t-shirt&sort=popularity", categoryUrl: "https://www.myntra.com/men-tshirts", cat: "Fashion", img: "https://assets.myntassets.com/h_720,q_90,w_540/v1/assets/images/2024/JUNE/20/zB26DJJJ_1718860890032_1.jpg" },
+    { title: "HRX by Hrithik Roshan Running Shoes", price: 1499, mrp: 2999, productUrl: "https://www.myntra.com/sports-shoes?rawQuery=hrx+by+hrithik+roshan+running+shoes&sort=popularity", categoryUrl: "https://www.myntra.com/men-sports-shoes", cat: "Footwear", img: "https://assets.myntassets.com/h_720,q_90,w_540/v1/assets/images/22168178/2023/3/9/40bd2e11-9d1f-4cb0-b4e0-40db1ca1f2e71678356662296HRXbyHrithikRoshanMenNavyBlueRunningShoes1.jpg" },
     { title: "Allen Solly Men Slim Fit Formal Shirt", price: 899, mrp: 1699, productUrl: "https://www.myntra.com/shirts?rawQuery=allen+solly+men+slim+fit+formal+shirt&sort=popularity", categoryUrl: "https://www.myntra.com/men-formal-shirts", cat: "Fashion" },
     { title: "HIGHLANDER Men Blue Slim Fit Jeans", price: 599, mrp: 1499, productUrl: "https://www.myntra.com/jeans?rawQuery=highlander+men+blue+slim+fit+jeans&sort=popularity", categoryUrl: "https://www.myntra.com/men-jeans", cat: "Fashion" },
     { title: "Libas Women Printed Kurti with Trousers", price: 699, mrp: 1999, productUrl: "https://www.myntra.com/kurta-sets?rawQuery=libas+women+printed+kurti+trousers&sort=popularity", categoryUrl: "https://www.myntra.com/women-kurta-sets", cat: "Fashion" },
@@ -33,12 +46,12 @@ const CURATED: Record<MarketplaceName, CuratedItem[]> = {
     { title: "Mast & Harbour Men White Sneakers", price: 799, mrp: 1999, productUrl: "https://www.myntra.com/casual-shoes?rawQuery=mast+harbour+men+white+sneakers&sort=popularity", categoryUrl: "https://www.myntra.com/men-casual-shoes", cat: "Footwear" },
   ],
   Amazon: [
-    { title: "boAt Rockerz 450 Wireless Bluetooth Headphone", price: 999, mrp: 2990, productUrl: "https://www.amazon.in/s?k=boAt+Rockerz+450+Wireless+Bluetooth+Headphone", categoryUrl: "https://www.amazon.in/b?node=1388921031", cat: "Electronics" },
-    { title: "Noise ColorFit Pro 4 Smartwatch", price: 2499, mrp: 5999, productUrl: "https://www.amazon.in/s?k=Noise+ColorFit+Pro+4+Smartwatch", categoryUrl: "https://www.amazon.in/b?node=21927692031", cat: "Electronics" },
-    { title: "Redmi 12 5G 128GB Smartphone", price: 10999, mrp: 17999, productUrl: "https://www.amazon.in/s?k=Redmi+12+5G+128GB", categoryUrl: "https://www.amazon.in/b?node=1389401031", cat: "Electronics" },
+    { title: "boAt Rockerz 450 Wireless Bluetooth Headphone", price: 999, mrp: 2990, productUrl: "https://www.amazon.in/s?k=boAt+Rockerz+450+Wireless+Bluetooth+Headphone", categoryUrl: "https://www.amazon.in/b?node=1388921031", cat: "Electronics", img: "https://m.media-amazon.com/images/I/51H1dNFtoxL._SL1500_.jpg" },
+    { title: "Noise ColorFit Pro 4 Smartwatch", price: 2499, mrp: 5999, productUrl: "https://www.amazon.in/s?k=Noise+ColorFit+Pro+4+Smartwatch", categoryUrl: "https://www.amazon.in/b?node=21927692031", cat: "Electronics", img: "https://m.media-amazon.com/images/I/61GFxN2AJTL._SL1500_.jpg" },
+    { title: "Redmi 12 5G 128GB Smartphone", price: 10999, mrp: 17999, productUrl: "https://www.amazon.in/s?k=Redmi+12+5G+128GB", categoryUrl: "https://www.amazon.in/b?node=1389401031", cat: "Electronics", img: "https://m.media-amazon.com/images/I/41LhMDqFbML._SL1200_.jpg" },
     { title: "Prestige Electric Kettle 1.5 Litre", price: 549, mrp: 1195, productUrl: "https://www.amazon.in/s?k=Prestige+Electric+Kettle+1.5+Litre", categoryUrl: "https://www.amazon.in/b?node=3561625031", cat: "Home & Kitchen" },
     { title: "Fire-Boltt Phoenix AMOLED Smartwatch", price: 1299, mrp: 8999, productUrl: "https://www.amazon.in/s?k=Fire-Boltt+Phoenix+AMOLED+Smartwatch", categoryUrl: "https://www.amazon.in/b?node=21927692031", cat: "Electronics" },
-    { title: "boAt Airdopes 141 TWS Earbuds", price: 899, mrp: 4490, productUrl: "https://www.amazon.in/s?k=boAt+Airdopes+141+TWS+Earbuds", categoryUrl: "https://www.amazon.in/b?node=1388921031", cat: "Electronics" },
+    { title: "boAt Airdopes 141 TWS Earbuds", price: 899, mrp: 4490, productUrl: "https://www.amazon.in/s?k=boAt+Airdopes+141+TWS+Earbuds", categoryUrl: "https://www.amazon.in/b?node=1388921031", cat: "Electronics", img: "https://m.media-amazon.com/images/I/51mlabJJ1AL._SL1500_.jpg" },
     { title: "Havells Instanio 3L Instant Water Geyser", price: 3299, mrp: 6100, productUrl: "https://www.amazon.in/s?k=Havells+Instanio+3L+Instant+Water+Geyser", categoryUrl: "https://www.amazon.in/b?node=4369221031", cat: "Home & Kitchen" },
     { title: "Boldfit Gym Shaker Bottle 700ml", price: 199, mrp: 599, productUrl: "https://www.amazon.in/s?k=Boldfit+Gym+Shaker+Bottle+700ml", categoryUrl: "https://www.amazon.in/b?node=3408861031", cat: "General" },
   ],
@@ -98,12 +111,15 @@ function makeDeal(marketplace: MarketplaceName, item: CuratedItem): InternetDeal
   else if (discount && discount > 30) score += 15;
   else if (discount && discount > 15) score += 8;
 
+  // Use curated image, or category placeholder, or null
+  const imageUrl = item.img || CATEGORY_THUMBNAILS[item.cat || "General"] || null;
+
   return {
     id: `curated-${marketplace}-${Math.random().toString(36).slice(2, 10)}`,
     title: item.title,
     marketplace,
     category: item.cat || "General",
-    imageUrl: null,
+    imageUrl,
     currentPrice: item.price,
     originalPrice: item.mrp ?? null,
     discountPercent: discount,
