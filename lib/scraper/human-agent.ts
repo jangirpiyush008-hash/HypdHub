@@ -227,7 +227,7 @@ export async function resolveProduct(searchUrl: string, marketplace?: string): P
     const host = new URL(searchUrl).hostname.toLowerCase();
 
     if (host.includes("myntra")) return resolveMyntra(searchUrl);
-    if (host.includes("amazon")) return resolveAmazon(searchUrl);
+    if (host.includes("meesho")) return resolveMeesho(searchUrl);
     if (host.includes("flipkart") && !host.includes("shopsy")) return resolveFlipkart(searchUrl);
     if (host.includes("shopsy")) return resolveShopsy(searchUrl);
     if (host.includes("nykaa")) return resolveNykaa(searchUrl);
@@ -281,36 +281,35 @@ async function resolveMyntra(searchUrl: string): Promise<ResolvedProduct> {
   };
 }
 
-// ─── AMAZON ───
-// Must use mobile UA to get real results. Desktop gets captcha.
-async function resolveAmazon(searchUrl: string): Promise<ResolvedProduct> {
-  // Force mobile profile for Amazon (desktop gets blocked)
-  const mobileProfile = CHROME_PROFILES[0]; // Android Samsung
-  const res = await humanFetch({ url: searchUrl, timeout: 12000, profile: mobileProfile });
+// ─── MEESHO ───
+// Search page exposes product links as /<slug>/p/<id>. og:image gives real photo.
+async function resolveMeesho(searchUrl: string): Promise<ResolvedProduct> {
+  const res = await humanFetch({ url: searchUrl, timeout: 12000 });
   if (!res.ok) return { productUrl: null, imageUrl: null, resolvedTitle: null };
 
   const html = res.text;
 
-  // Extract first ASIN
-  const asinMatch = html.match(/data-asin="([A-Z0-9]{10})"/);
-  const productUrl = asinMatch ? `https://www.amazon.in/dp/${asinMatch[1]}` : null;
+  // Extract first product link (pattern: /some-slug/p/abc123)
+  const linkMatch = html.match(/href="(\/[^"]*\/p\/[a-z0-9]+)"/i);
+  const productUrl = linkMatch ? `https://www.meesho.com${linkMatch[1]}` : null;
 
-  // Extract product images (skip SVGs and sprites)
-  const allImgs = [...html.matchAll(/src="(https:\/\/m\.media-amazon\.com\/images\/I\/[^"]+)"/g)]
-    .map(m => m[1])
-    .filter(u => !u.endsWith(".svg") && !u.includes("sprite"));
+  // Try og:image from search page first
+  let imageUrl: string | null = null;
+  const ogMatch = html.match(/property="og:image"\s*content="([^"]+)"/)
+    ?? html.match(/content="([^"]+)"\s*property="og:image"/);
+  if (ogMatch?.[1]) imageUrl = ogMatch[1];
 
-  let imageUrl = allImgs[0] ?? null;
-  // Upgrade to higher res
-  if (imageUrl) {
-    imageUrl = imageUrl.replace(/\._[^.]+_\./, "._SL500_.");
+  if (!imageUrl && productUrl) {
+    await delay(200, 500);
+    const prodRes = await humanFetch({ url: productUrl, timeout: 12000 });
+    if (prodRes.ok) {
+      const prodOg = prodRes.text.match(/property="og:image"\s*content="([^"]+)"/)
+        ?? prodRes.text.match(/content="([^"]+)"\s*property="og:image"/);
+      if (prodOg?.[1]) imageUrl = prodOg[1];
+    }
   }
 
-  return {
-    productUrl,
-    imageUrl,
-    resolvedTitle: null,
-  };
+  return { productUrl, imageUrl, resolvedTitle: null };
 }
 
 // ─── FLIPKART ───

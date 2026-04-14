@@ -46,7 +46,7 @@ type DealsApiResponse = {
   };
 };
 
-const ALL_MARKETPLACES = ["All", "Myntra", "Amazon", "Flipkart", "Ajio", "Nykaa", "Shopsy", "HYPD"] as const;
+const ALL_MARKETPLACES = ["All", "Myntra", "Meesho", "Flipkart", "Ajio", "Nykaa", "Shopsy", "HYPD"] as const;
 
 const PRICE_RANGES = [
   { label: "All Prices", min: 0, max: 999999 },
@@ -59,7 +59,7 @@ const PRICE_RANGES = [
 
 const MARKETPLACE_BRANDING: Record<string, { color: string; bg: string; logoBg: string; logoFile: string; fallbackLetter: string }> = {
   Myntra: { color: "#ff3f6c", bg: "#ff3f6c15", logoBg: "#ffffff", logoFile: "/logos/myntra.png", fallbackLetter: "M" },
-  Amazon: { color: "#ff9900", bg: "#ff990015", logoBg: "#ffffff", logoFile: "/logos/amazon.png", fallbackLetter: "a" },
+  Meesho: { color: "#9f2089", bg: "#9f208915", logoBg: "#4a0e3f", logoFile: "/logos/meesho.png", fallbackLetter: "M" },
   Flipkart: { color: "#2874f0", bg: "#2874f015", logoBg: "transparent", logoFile: "/logos/flipkart.png", fallbackLetter: "F" },
   Ajio: { color: "#3b3b3b", bg: "#3b3b3b15", logoBg: "#ffffff", logoFile: "/logos/ajio.png", fallbackLetter: "A" },
   Nykaa: { color: "#fc2779", bg: "#fc277915", logoBg: "#ffffff", logoFile: "/logos/nykaa.png", fallbackLetter: "N" },
@@ -251,9 +251,9 @@ function CategoryCard({ deal, branding, isLoggedIn }: { deal: InternetDeal; bran
 }
 
 function ShareLinkButton({ deal, isLoggedIn, branding }: { deal: InternetDeal; isLoggedIn: boolean; branding: typeof MARKETPLACE_BRANDING["Myntra"] }) {
-  const [state, setState] = useState<"idle" | "loading" | "copied" | "error">("idle");
+  const [copied, setCopied] = useState(false);
 
-  const handleShare = async (e: React.MouseEvent) => {
+  const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -262,56 +262,28 @@ function ShareLinkButton({ deal, isLoggedIn, branding }: { deal: InternetDeal; i
       return;
     }
 
-    const sourceUrl = deal.originalUrl || deal.canonicalUrl;
-    if (!sourceUrl) return;
+    // Copy the deep link directly — the cleaned marketplace URL with the
+    // creator's HYPD affiliate params already baked in by the deals API.
+    const deepLink = deal.originalUrl || deal.canonicalUrl;
+    if (!deepLink) return;
 
-    setState("loading");
-    try {
-      // Hit the same endpoint the converter page uses — ensures the copied
-      // link exactly matches what /converter would produce for this URL.
-      const res = await fetch("/api/hypd/convert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceUrl }),
-      });
-      const data = await res.json();
-      const shareUrl = data?.result?.shortLink || deal.affiliateShortLink || sourceUrl;
-      await navigator.clipboard.writeText(shareUrl);
-      setState("copied");
-      setTimeout(() => setState("idle"), 2000);
-    } catch {
-      // Fallback to whatever link the API gave us on the deal itself
-      const fallback = deal.affiliateShortLink || sourceUrl;
-      try {
-        await navigator.clipboard.writeText(fallback);
-        setState("copied");
-        setTimeout(() => setState("idle"), 2000);
-      } catch {
-        setState("error");
-        setTimeout(() => setState("idle"), 2000);
-      }
-    }
+    navigator.clipboard.writeText(deepLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   return (
     <button
       onClick={handleShare}
-      disabled={state === "loading"}
-      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all hover:opacity-80 border disabled:opacity-60"
+      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all hover:opacity-80 border"
       style={{ borderColor: branding.color + "40", color: branding.color, backgroundColor: "transparent" }}
     >
-      {state === "copied" ? (
+      {copied ? (
         <>
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           Copied!
         </>
-      ) : state === "loading" ? (
-        <>
-          <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          Getting link...
-        </>
-      ) : state === "error" ? (
-        <>Failed — try again</>
       ) : (
         <>
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>

@@ -192,7 +192,7 @@ export function ConverterPanel() {
                   <p className="mt-1 break-all text-sm font-medium text-primary">{output.shortLink}</p>
                 </div>
                 <div className="rounded-lg bg-surface-high px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase text-muted">Full Link</p>
+                  <p className="text-[10px] font-bold uppercase text-muted">Deep Link</p>
                   <p className="mt-1 break-all text-sm text-text">{output.expandedLink}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">

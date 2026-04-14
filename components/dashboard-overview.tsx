@@ -48,10 +48,10 @@ const HYPD_BOTS = [
 const MARKETPLACE_COMMISSIONS_FALLBACK: HypdCommission[] = [
   { label: "Myntra", commission: "3.5% - 12%" },
   { label: "Flipkart", commission: "2% - 15%" },
-  { label: "Amazon", commission: "1% - 12%" },
+  { label: "Meesho", commission: "1% - 8%" },
   { label: "Ajio", commission: "3% - 10%" },
   { label: "Nykaa", commission: "5% - 15%" },
-  { label: "Meesho", commission: "1% - 8%" },
+  { label: "Shopsy", commission: "2% - 10%" },
 ];
 
 function fmt(v: string | null) {

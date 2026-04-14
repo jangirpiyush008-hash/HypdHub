@@ -3,7 +3,7 @@ import { DealThumb } from "@/components/deal-thumb";
 import { InternetDeal } from "@/lib/types";
 
 const sourceBadges: Record<InternetDeal["marketplace"], string> = {
-  Amazon: "bg-amber-300/20 text-amber-300",
+  Meesho: "bg-fuchsia-300/20 text-fuchsia-200",
   Ajio: "bg-pink-300/20 text-pink-200",
   Flipkart: "bg-sky-300/20 text-sky-200",
   Myntra: "bg-primary/20 text-primary",
@@ -13,7 +13,7 @@ const sourceBadges: Record<InternetDeal["marketplace"], string> = {
 };
 
 const thumbGradients: Record<InternetDeal["marketplace"], string> = {
-  Amazon: "from-amber-400 via-orange-400 to-rose-400",
+  Meesho: "from-fuchsia-500 via-purple-500 to-pink-500",
   Ajio: "from-pink-400 via-fuchsia-400 to-violet-500",
   Flipkart: "from-sky-400 via-cyan-400 to-blue-500",
   Myntra: "from-primary via-fuchsia-400 to-violet-500",

@@ -7,7 +7,7 @@ import { InternetDeal } from "@/lib/types";
 
 const supportedMarketplaces: InternetDeal["marketplace"][] = [
   "Myntra",
-  "Amazon",
+  "Meesho",
   "Flipkart",
   "Shopsy",
   "Ajio",

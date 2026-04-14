@@ -13,18 +13,18 @@ import { getCachedDeals, setCachedDeals, isCacheFresh, getAllCachedDeals } from 
 import {
   scrapeMyntra,
   scrapeFlipkart,
-  scrapeAmazon,
   scrapeAjio,
   scrapeNykaa,
   scrapeShopsy,
+  scrapeMeesho,
 } from "./marketplace-agents";
 
-type MarketplaceName = "Myntra" | "Flipkart" | "Amazon" | "Ajio" | "Nykaa" | "Shopsy";
+type MarketplaceName = "Myntra" | "Flipkart" | "Meesho" | "Ajio" | "Nykaa" | "Shopsy";
 
 const SCRAPERS: Array<{ name: MarketplaceName; fn: () => Promise<InternetDeal[]> }> = [
   { name: "Myntra", fn: scrapeMyntra },
   { name: "Flipkart", fn: scrapeFlipkart },
-  { name: "Amazon", fn: scrapeAmazon },
+  { name: "Meesho", fn: scrapeMeesho },
   { name: "Ajio", fn: scrapeAjio },
   { name: "Nykaa", fn: scrapeNykaa },
   { name: "Shopsy", fn: scrapeShopsy },

@@ -74,7 +74,11 @@ export async function fetchDealsFromDb(): Promise<InternetDeal[]> {
       return [];
     }
 
-    return (data as DbDeal[]).map(dbDealToInternetDeal);
+    // Amazon is not integrated with HYPD — filter it out at the source so any
+    // legacy Amazon rows in the DB don't leak into the UI.
+    return (data as DbDeal[])
+      .filter((d) => d.marketplace !== "Amazon")
+      .map(dbDealToInternetDeal);
   } catch (err) {
     console.error("[supabase-deals] Connection error:", err);
     return [];

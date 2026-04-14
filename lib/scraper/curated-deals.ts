@@ -10,7 +10,7 @@
 
 import { InternetDeal } from "@/lib/types";
 
-type MarketplaceName = "Myntra" | "Flipkart" | "Amazon" | "Ajio" | "Nykaa" | "Shopsy";
+type MarketplaceName = "Myntra" | "Flipkart" | "Meesho" | "Ajio" | "Nykaa" | "Shopsy";
 
 interface CuratedItem {
   title: string;
@@ -45,15 +45,15 @@ const CURATED: Record<MarketplaceName, CuratedItem[]> = {
     { title: "H&M Regular Fit Cotton Shirt", price: 799, mrp: 1299, productUrl: "https://www.myntra.com/shirts?rawQuery=h+m+regular+fit+cotton+shirt&sort=popularity", categoryUrl: "https://www.myntra.com/men-shirts", cat: "Fashion" },
     { title: "Mast & Harbour Men White Sneakers", price: 799, mrp: 1999, productUrl: "https://www.myntra.com/casual-shoes?rawQuery=mast+harbour+men+white+sneakers&sort=popularity", categoryUrl: "https://www.myntra.com/men-casual-shoes", cat: "Footwear" },
   ],
-  Amazon: [
-    { title: "boAt Rockerz 450 Wireless Bluetooth Headphone", price: 999, mrp: 2990, productUrl: "https://www.amazon.in/s?k=boAt+Rockerz+450+Wireless+Bluetooth+Headphone", categoryUrl: "https://www.amazon.in/b?node=1388921031", cat: "Electronics", img: "https://m.media-amazon.com/images/I/51H1dNFtoxL._SL1500_.jpg" },
-    { title: "Noise ColorFit Pro 4 Smartwatch", price: 2499, mrp: 5999, productUrl: "https://www.amazon.in/s?k=Noise+ColorFit+Pro+4+Smartwatch", categoryUrl: "https://www.amazon.in/b?node=21927692031", cat: "Electronics", img: "https://m.media-amazon.com/images/I/61GFxN2AJTL._SL1500_.jpg" },
-    { title: "Redmi 12 5G 128GB Smartphone", price: 10999, mrp: 17999, productUrl: "https://www.amazon.in/s?k=Redmi+12+5G+128GB", categoryUrl: "https://www.amazon.in/b?node=1389401031", cat: "Electronics", img: "https://m.media-amazon.com/images/I/41LhMDqFbML._SL1200_.jpg" },
-    { title: "Prestige Electric Kettle 1.5 Litre", price: 549, mrp: 1195, productUrl: "https://www.amazon.in/s?k=Prestige+Electric+Kettle+1.5+Litre", categoryUrl: "https://www.amazon.in/b?node=3561625031", cat: "Home & Kitchen" },
-    { title: "Fire-Boltt Phoenix AMOLED Smartwatch", price: 1299, mrp: 8999, productUrl: "https://www.amazon.in/s?k=Fire-Boltt+Phoenix+AMOLED+Smartwatch", categoryUrl: "https://www.amazon.in/b?node=21927692031", cat: "Electronics" },
-    { title: "boAt Airdopes 141 TWS Earbuds", price: 899, mrp: 4490, productUrl: "https://www.amazon.in/s?k=boAt+Airdopes+141+TWS+Earbuds", categoryUrl: "https://www.amazon.in/b?node=1388921031", cat: "Electronics", img: "https://m.media-amazon.com/images/I/51mlabJJ1AL._SL1500_.jpg" },
-    { title: "Havells Instanio 3L Instant Water Geyser", price: 3299, mrp: 6100, productUrl: "https://www.amazon.in/s?k=Havells+Instanio+3L+Instant+Water+Geyser", categoryUrl: "https://www.amazon.in/b?node=4369221031", cat: "Home & Kitchen" },
-    { title: "Boldfit Gym Shaker Bottle 700ml", price: 199, mrp: 599, productUrl: "https://www.amazon.in/s?k=Boldfit+Gym+Shaker+Bottle+700ml", categoryUrl: "https://www.amazon.in/b?node=3408861031", cat: "General" },
+  Meesho: [
+    { title: "Women Printed Rayon Straight Kurti", price: 299, mrp: 1299, productUrl: "https://www.meesho.com/search?q=women+printed+rayon+straight+kurti", categoryUrl: "https://www.meesho.com/women-kurtis/pl/3n8", cat: "Fashion" },
+    { title: "Men Slim Fit Solid Casual Shirt", price: 349, mrp: 1499, productUrl: "https://www.meesho.com/search?q=men+slim+fit+solid+casual+shirt", categoryUrl: "https://www.meesho.com/men-shirts/pl/3dy", cat: "Fashion" },
+    { title: "Women Embroidered Anarkali Kurta Set", price: 599, mrp: 2499, productUrl: "https://www.meesho.com/search?q=women+embroidered+anarkali+kurta+set", categoryUrl: "https://www.meesho.com/kurta-sets/pl/3n9", cat: "Fashion" },
+    { title: "Unisex Casual Sneakers White", price: 399, mrp: 1499, productUrl: "https://www.meesho.com/search?q=unisex+casual+sneakers+white", categoryUrl: "https://www.meesho.com/casual-shoes/pl/3w8", cat: "Footwear" },
+    { title: "Women Traditional Jhumka Earrings", price: 149, mrp: 699, productUrl: "https://www.meesho.com/search?q=women+traditional+jhumka+earrings", categoryUrl: "https://www.meesho.com/earrings/pl/3p5", cat: "Accessories" },
+    { title: "Stainless Steel Insulated Water Bottle", price: 249, mrp: 899, productUrl: "https://www.meesho.com/search?q=stainless+steel+insulated+water+bottle", categoryUrl: "https://www.meesho.com/water-bottles/pl/41v", cat: "Home & Kitchen" },
+    { title: "Men Cotton Regular Fit Track Pants", price: 299, mrp: 999, productUrl: "https://www.meesho.com/search?q=men+cotton+regular+fit+track+pants", categoryUrl: "https://www.meesho.com/men-track-pants/pl/3dx", cat: "Fashion" },
+    { title: "Women Printed Chiffon Saree with Blouse", price: 499, mrp: 1999, productUrl: "https://www.meesho.com/search?q=women+printed+chiffon+saree", categoryUrl: "https://www.meesho.com/sarees/pl/3nc", cat: "Fashion" },
   ],
   Flipkart: [
     { title: "POCO M6 Pro 5G 128GB Smartphone", price: 9999, mrp: 16999, productUrl: "https://www.flipkart.com/search?q=POCO+M6+Pro+5G+128GB", categoryUrl: "https://www.flipkart.com/mobiles/pr?sid=tyy%2C4io", cat: "Electronics" },

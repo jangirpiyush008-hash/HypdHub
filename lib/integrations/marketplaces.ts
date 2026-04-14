@@ -183,7 +183,7 @@ export async function fetchMarketplaceSnapshots() {
   return {
     status: "public_web_strategy_ready",
     refreshWindowHours: 2,
-    marketplaces: ["Myntra", "Amazon", "Flipkart", "Shopsy", "Ajio", "Nykaa"],
+    marketplaces: ["Myntra", "Meesho", "Flipkart", "Shopsy", "Ajio", "Nykaa"],
     categories: ["Beauty", "Fashion", "Sneakers", "Wearables", "Audio", "Home", "Studio"],
     strategy: [
       "Use Telegram, public deal communities, and marketplace pages as discovery sources",
@@ -203,7 +203,7 @@ export async function fetchMarketplaceSnapshots() {
     ],
     marketplaceSignals: {
       Myntra: ["sale sections", "bestseller tags", "discount %", "stock visibility"],
-      Amazon: ["bestseller sections", "limited deal tags", "discount %", "stock visibility"],
+      Meesho: ["trending sections", "super saver tags", "discount %", "stock visibility"],
       Flipkart: ["listing prominence", "discount %", "stock visibility", "bestseller labels"],
       Shopsy: ["price-led listings", "discount %", "listing prominence", "stock visibility"],
       Ajio: ["sale sections", "discount %", "listing prominence", "stock visibility"],

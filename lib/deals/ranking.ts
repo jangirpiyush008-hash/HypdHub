@@ -1,6 +1,6 @@
 import { InternetDeal, RankingBreakdown } from "@/lib/types";
 
-const preferredMarketplaces = ["Myntra", "Amazon", "Flipkart", "Shopsy", "Ajio", "Nykaa"] as const;
+const preferredMarketplaces = ["Myntra", "Meesho", "Flipkart", "Shopsy", "Ajio", "Nykaa"] as const;
 
 export function getDiscountPercent(price: number, originalPrice: number) {
   return Math.round(((originalPrice - price) / originalPrice) * 100);

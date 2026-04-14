@@ -75,7 +75,7 @@ const telegramChannels: TelegramChannelSource[] = [
 
 const supportedMarketplaces: SupportedMarketplace[] = [
   "Myntra",
-  "Amazon",
+  "Meesho",
   "Flipkart",
   "Shopsy",
   "Ajio",
@@ -143,7 +143,7 @@ function detectMarketplaceFromUrl(rawUrl: string): SupportedMarketplace | null {
     const host = url.hostname.toLowerCase();
 
     if (host.includes("myntra")) return "Myntra";
-    if (host.includes("amazon")) return "Amazon";
+    if (host.includes("meesho")) return "Meesho";
     if (host.includes("flipkart")) return "Flipkart";
     if (host.includes("shopsy")) return "Shopsy";
     if (host.includes("ajio")) return "Ajio";
@@ -204,13 +204,6 @@ function canonicalizeMarketplaceUrl(rawUrl: string) {
     }
 
     url.hash = "";
-
-    if (marketplace === "Amazon") {
-      const asinMatch = url.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-      if (asinMatch) {
-        return { marketplace, canonicalUrl: `https://${url.hostname}/dp/${asinMatch[1].toUpperCase()}` };
-      }
-    }
 
     if (marketplace === "Flipkart" || marketplace === "Shopsy") {
       const cleaned = url.pathname.replace(/\/+$/, "");

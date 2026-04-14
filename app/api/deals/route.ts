@@ -10,13 +10,13 @@ import { fetchCurrentHypdCreator } from "@/lib/hypd-server";
 import { fetchDealsFromDb } from "@/lib/scraper/supabase-deals";
 
 const supportedMarketplaces: InternetDeal["marketplace"][] = [
-  "Myntra", "Amazon", "Flipkart", "Shopsy", "Ajio", "Nykaa", "HYPD"
+  "Myntra", "Meesho", "Flipkart", "Shopsy", "Ajio", "Nykaa", "HYPD"
 ];
 
 // Default category URLs per marketplace (used when deal doesn't have one)
 const MARKETPLACE_CATEGORY_URLS: Record<string, string> = {
   Myntra: "https://www.myntra.com/shop/best-sellers",
-  Amazon: "https://www.amazon.in/gp/bestsellers",
+  Meesho: "https://www.meesho.com/deals",
   Flipkart: "https://www.flipkart.com/offers-store",
   Shopsy: "https://www.shopsy.in/deals",
   Ajio: "https://www.ajio.com/sale",
