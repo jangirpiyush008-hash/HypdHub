@@ -1,11 +1,11 @@
 /**
  * Scraper Orchestrator
  *
- * Fast-first approach:
- * 1. Serve curated deals INSTANTLY (no waiting)
- * 2. Background: resolve product images from URLs
- * 3. Background: scrape live data from marketplaces
- * 4. Cache everything for 10 minutes
+ * Since deals are now in Supabase, this module only handles:
+ * 1. Background scraping of LIVE marketplace data
+ * 2. Caching scraped results
+ *
+ * It does NOT return curated deals — those come from Supabase.
  */
 
 import { InternetDeal } from "@/lib/types";
@@ -18,8 +18,6 @@ import {
   scrapeNykaa,
   scrapeShopsy,
 } from "./marketplace-agents";
-import { getCuratedDeals } from "./curated-deals";
-import { batchResolveImages } from "./image-resolver";
 
 type MarketplaceName = "Myntra" | "Flipkart" | "Amazon" | "Ajio" | "Nykaa" | "Shopsy";
 
@@ -31,8 +29,6 @@ const SCRAPERS: Array<{ name: MarketplaceName; fn: () => Promise<InternetDeal[]>
   { name: "Nykaa", fn: scrapeNykaa },
   { name: "Shopsy", fn: scrapeShopsy },
 ];
-
-const ALL_MARKETPLACE_NAMES: MarketplaceName[] = ["Myntra", "Flipkart", "Amazon", "Ajio", "Nykaa", "Shopsy"];
 
 const CACHE_FRESH_MINUTES = 10;
 let memCache: { deals: InternetDeal[]; sources: string[]; scrapedAt: string; fetchedAt: number } | null = null;
@@ -50,83 +46,21 @@ export async function scrapeAllMarketplaces(): Promise<{
     return memCache;
   }
 
-  // Layer 2: File cache
+  // Layer 2: File cache (scraped data only)
   const fileCached = await getAllCachedDeals();
-  if (fileCached.deals.length > 10) {
+  if (fileCached.deals.length > 5) {
     const result = { deals: fileCached.deals, sources: fileCached.sources, scrapedAt: fileCached.updatedAt, fetchedAt: now };
     memCache = result;
     refreshAllInBackground().catch(() => {});
     return result;
   }
 
-  // Layer 3: Serve curated instantly
-  const allDeals: InternetDeal[] = [];
-  const sources: string[] = [];
-  for (const name of ALL_MARKETPLACE_NAMES) {
-    const curated = getCuratedDeals(name);
-    allDeals.push(...curated);
-    sources.push(`${name}: ${curated.length} (curated)`);
-  }
-  allDeals.sort((a, b) => b.score - a.score);
-
-  const result = { deals: allDeals, sources, scrapedAt: new Date().toISOString(), fetchedAt: now };
+  // No cached scraped data — return empty, scrape in background
+  // (Supabase DB deals are the primary source now, not curated fallback)
+  const result = { deals: [] as InternetDeal[], sources: ["No scraped data yet"], scrapedAt: new Date().toISOString(), fetchedAt: now };
   memCache = result;
-
-  // Background: resolve images + scrape live data
-  resolveImagesInBackground(allDeals).catch(() => {});
   refreshAllInBackground().catch(() => {});
-
   return result;
-}
-
-/**
- * Background: fetch product images for deals that don't have them
- */
-let imageResolveRunning = false;
-async function resolveImagesInBackground(deals: InternetDeal[]): Promise<void> {
-  if (imageResolveRunning) return;
-  imageResolveRunning = true;
-
-  try {
-    const urlsToResolve = deals
-      .filter((d) => !d.imageUrl && d.originalUrl)
-      .map((d) => d.originalUrl);
-
-    if (urlsToResolve.length === 0) return;
-
-    const images = await batchResolveImages(urlsToResolve, 2);
-
-    // Update deals in memory cache with resolved images
-    if (memCache) {
-      let updated = false;
-      for (const deal of memCache.deals) {
-        if (!deal.imageUrl && deal.originalUrl && images[deal.originalUrl]) {
-          deal.imageUrl = images[deal.originalUrl];
-          updated = true;
-        }
-      }
-      if (updated) {
-        // Also update file cache per marketplace
-        const byMarketplace: Record<string, InternetDeal[]> = {};
-        for (const deal of memCache.deals) {
-          if (!byMarketplace[deal.marketplace]) byMarketplace[deal.marketplace] = [];
-          byMarketplace[deal.marketplace].push(deal);
-        }
-        for (const [mp, mpDeals] of Object.entries(byMarketplace)) {
-          await setCachedDeals(mp, {
-            deals: mpDeals,
-            source: "curated+images",
-            scrapedAt: new Date().toISOString(),
-            strategy: "image-resolver",
-          });
-        }
-      }
-    }
-  } catch {
-    // Image resolution failed, no problem
-  } finally {
-    imageResolveRunning = false;
-  }
 }
 
 /**
@@ -145,30 +79,11 @@ async function refreshAllInBackground(): Promise<void> {
 
         const deals = await s.fn();
         if (deals.length > 0) {
-          // Resolve images for scraped deals too
-          const urls = deals.filter((d) => !d.imageUrl && d.originalUrl).map((d) => d.originalUrl);
-          if (urls.length > 0) {
-            const images = await batchResolveImages(urls, 2);
-            for (const deal of deals) {
-              if (!deal.imageUrl && deal.originalUrl && images[deal.originalUrl]) {
-                deal.imageUrl = images[deal.originalUrl];
-              }
-            }
-          }
-
           await setCachedDeals(s.name, {
             deals,
             source: "live",
             scrapedAt: new Date().toISOString(),
             strategy: "nova-agent",
-          });
-        } else {
-          const curated = getCuratedDeals(s.name);
-          await setCachedDeals(s.name, {
-            deals: curated,
-            source: "curated",
-            scrapedAt: new Date().toISOString(),
-            strategy: "fallback",
           });
         }
       } catch {

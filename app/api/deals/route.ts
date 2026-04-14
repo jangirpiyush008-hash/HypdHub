@@ -33,15 +33,22 @@ function ensureCategoryUrl(deal: InternetDeal): InternetDeal {
 }
 
 function cleanDeals(deals: InternetDeal[]): InternetDeal[] {
-  const seenTitles = new Set<string>();
+  const seenKeys = new Set<string>();
   return deals.filter((deal) => {
     if (deal.marketplace === "HYPD") return true;
     if (!deal.currentPrice || deal.currentPrice <= 0) return false;
     if (!deal.title || deal.title.length < 5) return false;
     if (/loot\s*:/i.test(deal.title) || /at\s+\d+\.\s*$/i.test(deal.title)) return false;
-    const key = deal.title.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (seenTitles.has(key)) return false;
-    seenTitles.add(key);
+
+    // Deduplicate by URL first (more precise), then by title
+    const urlKey = (deal.originalUrl || deal.canonicalUrl || "").replace(/https?:\/\//, "").split("?")[0];
+    const titleKey = deal.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const key = urlKey || titleKey;
+    if (seenKeys.has(key)) return false;
+    seenKeys.add(key);
+    // Also track title to prevent title duplicates from different sources
+    if (seenKeys.has(titleKey)) return false;
+    seenKeys.add(titleKey);
     return true;
   });
 }
