@@ -1,0 +1,49 @@
+# Nixpacks config for Railway — installs Chromium + the native libs
+# Playwright needs to run headless Chrome for Nova (lib/scraper/nova-browser.ts).
+#
+# Without these, `playwright install chromium` downloads the binary but fails
+# to launch because the container is missing fontconfig, nss, libdrm, etc.
+
+[phases.setup]
+# System packages required by headless Chromium.
+# Reference: https://playwright.dev/docs/browsers#install-system-dependencies
+nixPkgs = [
+  "nodejs_20",
+  "chromium",
+  "nss",
+  "nspr",
+  "cups",
+  "dbus",
+  "atk",
+  "at-spi2-atk",
+  "cairo",
+  "pango",
+  "gtk3",
+  "gdk-pixbuf",
+  "glib",
+  "fontconfig",
+  "freetype",
+  "alsa-lib",
+  "libdrm",
+  "libxkbcommon",
+  "mesa",
+  "expat",
+  "xorg.libX11",
+  "xorg.libXcomposite",
+  "xorg.libXdamage",
+  "xorg.libXext",
+  "xorg.libXfixes",
+  "xorg.libXrandr",
+  "xorg.libxcb",
+]
+
+[phases.install]
+# npm postinstall also runs `playwright install chromium`; this env lets
+# Playwright use the system-provided Chromium when available.
+cmds = ["npm ci --include=dev"]
+
+[variables]
+# Tell Playwright to skip its own download and use the Nix-provided Chromium.
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "0"
+# Memory-friendly Node heap for Railway hobby tier (512MB-1GB).
+NODE_OPTIONS = "--max-old-space-size=512"

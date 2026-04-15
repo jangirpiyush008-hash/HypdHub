@@ -8,11 +8,15 @@
     "start": "next start",
     "lint": "next lint",
     "telegram:login": "node scripts/create-telegram-session.mjs",
-    "telegram:check": "node scripts/check-telegram-channels.mjs"
+    "telegram:check": "node scripts/check-telegram-channels.mjs",
+    "postinstall": "playwright install chromium || true"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.102.0",
     "next": "^15.0.0",
+    "playwright": "^1.59.1",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "telegram": "^2.26.22"

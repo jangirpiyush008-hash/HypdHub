@@ -11,6 +11,7 @@
 
 import { InternetDeal } from "@/lib/types";
 import { humanFetch, humanNavigate, humanDeepNavigate, tryStrategies, getRandomProfile } from "./human-agent";
+import { novaFetch, novaDeepNavigate } from "./nova-browser";
 
 type Marketplace = InternetDeal["marketplace"];
 
@@ -171,11 +172,39 @@ async function myntraStrategy3(): Promise<InternetDeal[]> {
   }).filter((d: InternetDeal) => d.currentPrice && d.currentPrice > 0);
 }
 
+async function myntraStrategy4(): Promise<InternetDeal[]> {
+  // Nova-driven JSON pull — bypasses Akamai JA3 fingerprinting.
+  const res = await novaDeepNavigate(
+    [
+      "https://www.myntra.com/",
+      "https://www.myntra.com/gateway/v2/search/search?q=trending+now&rows=20&sort=popularity",
+    ],
+    { acceptJson: true, settleMs: 400 }
+  );
+  if (!res.ok) return [];
+  try {
+    const json = JSON.parse(res.text);
+    const products = json?.products ?? [];
+    return products.slice(0, 12).map((p: Record<string, unknown>) => {
+      const imageUrl = (p.searchImage as string) ?? "";
+      return makeDeal({
+        title: (p.productName as string) ?? "Myntra Product",
+        marketplace: "Myntra",
+        currentPrice: (p.price as number) ?? 0,
+        originalPrice: (p.mrp as number) ?? undefined,
+        url: p.landingPageUrl ? `https://www.myntra.com/${p.landingPageUrl}` : "https://www.myntra.com",
+        imageUrl: imageUrl.startsWith("http") ? imageUrl : imageUrl ? `https://assets.myntassets.com/${imageUrl}` : undefined,
+      });
+    }).filter((d: InternetDeal) => d.currentPrice && d.currentPrice > 0);
+  } catch { return []; }
+}
+
 export async function scrapeMyntra(): Promise<InternetDeal[]> {
   const result = await tryStrategies([
     { name: "myntra-search-api", fn: () => myntraStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "myntra-deals-api", fn: () => myntraStrategy2().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "myntra-bestsellers", fn: () => myntraStrategy3().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
+    { name: "myntra-nova", fn: () => myntraStrategy4().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
   ]);
   if (result) {
     try { return JSON.parse(result.response.text); } catch { return []; }
@@ -189,23 +218,32 @@ export async function scrapeMyntra(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function flipkartStrategy1(): Promise<InternetDeal[]> {
-  // Deep navigation: home → deals (like a real user browsing)
+  // Nova (real Chromium) — the only reliable way past Akamai on Flipkart.
+  const res = await novaDeepNavigate(
+    ["https://www.flipkart.com/", "https://www.flipkart.com/deals-of-the-day"],
+    { waitForSelector: "img[src*='rukminim']", settleMs: 1500 }
+  );
+  if (!res.ok) return [];
+  return parseFlipkartHtml(res.text, "https://www.flipkart.com/deals-of-the-day");
+}
+
+async function flipkartStrategy2(): Promise<InternetDeal[]> {
+  const res = await novaDeepNavigate(
+    ["https://www.flipkart.com/", "https://www.flipkart.com/offers-store"],
+    { waitForSelector: "img[src*='rukminim']", settleMs: 1500 }
+  );
+  if (!res.ok) return [];
+  return parseFlipkartHtml(res.text, "https://www.flipkart.com/offers-store");
+}
+
+async function flipkartStrategy4(): Promise<InternetDeal[]> {
+  // Fallback to human-agent deep nav if Nova fails (e.g. Chromium not installed).
   const res = await humanDeepNavigate([
     "https://www.flipkart.com/",
     "https://www.flipkart.com/deals-of-the-day",
   ]);
   if (!res.ok) return [];
   return parseFlipkartHtml(res.text, "https://www.flipkart.com/deals-of-the-day");
-}
-
-async function flipkartStrategy2(): Promise<InternetDeal[]> {
-  // Deep navigation: home → offers store
-  const res = await humanDeepNavigate([
-    "https://www.flipkart.com/",
-    "https://www.flipkart.com/offers-store",
-  ]);
-  if (!res.ok) return [];
-  return parseFlipkartHtml(res.text, "https://www.flipkart.com/offers-store");
 }
 
 async function flipkartStrategy3(): Promise<InternetDeal[]> {
@@ -323,6 +361,7 @@ export async function scrapeFlipkart(): Promise<InternetDeal[]> {
     { name: "flipkart-navigate", fn: () => flipkartStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "flipkart-offers", fn: () => flipkartStrategy2().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "flipkart-api", fn: () => flipkartStrategy3().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
+    { name: "flipkart-human-fallback", fn: () => flipkartStrategy4().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
   ]);
   if (result) {
     try { return JSON.parse(result.response.text); } catch { return []; }
@@ -402,14 +441,18 @@ async function meeshoApiStrategy(): Promise<InternetDeal[]> {
   const out: InternetDeal[] = [];
   for (const ep of endpoints) {
     try {
-      const res = await humanNavigate("https://www.meesho.com/", ep, {
-        acceptJson: true,
-        extraHeaders: {
-          "x-app-client": "web",
-          "x-app-version": "0.1",
-          accept: "application/json",
-        },
-      });
+      // Nova first so DataDome sees a real browser; humanNavigate as fallback.
+      let res = await novaDeepNavigate(["https://www.meesho.com/", ep], { acceptJson: true });
+      if (!res.ok) {
+        res = await humanNavigate("https://www.meesho.com/", ep, {
+          acceptJson: true,
+          extraHeaders: {
+            "x-app-client": "web",
+            "x-app-version": "0.1",
+            accept: "application/json",
+          },
+        });
+      }
       if (!res.ok) continue;
       const data = JSON.parse(res.text);
       const catalogs = (data?.catalogs ?? data?.products ?? data?.data?.catalogs ?? []) as MeeshoCatalog[];
@@ -486,10 +529,17 @@ function parseMeeshoImagePrice(html: string): InternetDeal[] {
 }
 
 async function meeshoHtmlStrategy(path: string): Promise<InternetDeal[]> {
-  const res = await humanDeepNavigate([
-    "https://www.meesho.com/",
-    `https://www.meesho.com${path}`,
-  ]);
+  // Nova first — Meesho uses DataDome which blocks raw HTTP clients on sight.
+  let res = await novaDeepNavigate(
+    ["https://www.meesho.com/", `https://www.meesho.com${path}`],
+    { waitForSelector: "img[src*='meesho']", settleMs: 1500 }
+  );
+  if (!res.ok) {
+    res = await humanDeepNavigate([
+      "https://www.meesho.com/",
+      `https://www.meesho.com${path}`,
+    ]);
+  }
   if (!res.ok) return [];
   const fromNext = parseMeeshoNextData(res.text);
   if (fromNext.length >= 4) return fromNext;
@@ -536,16 +586,28 @@ export async function scrapeMeesho(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function ajioStrategy1(): Promise<InternetDeal[]> {
-  // Deep navigation: home → sale → API (full session buildup)
-  const res = await humanDeepNavigate(
+  // Nova deep-nav: home → sale → API. Real Chromium carries legit TLS + cookies.
+  const res = await novaDeepNavigate(
     [
       "https://www.ajio.com/",
       "https://www.ajio.com/sale",
       "https://www.ajio.com/api/category/830216001?currentPage=0&pageSize=20&sort=discount-desc",
     ],
-    { extraHeaders: { "x-requested-with": "XMLHttpRequest" }, acceptJson: true }
+    { acceptJson: true, settleMs: 800 }
   );
-  if (!res.ok) return [];
+  if (!res.ok) {
+    // Fallback to plain HTTP deep-nav.
+    const fb = await humanDeepNavigate(
+      [
+        "https://www.ajio.com/",
+        "https://www.ajio.com/sale",
+        "https://www.ajio.com/api/category/830216001?currentPage=0&pageSize=20&sort=discount-desc",
+      ],
+      { extraHeaders: { "x-requested-with": "XMLHttpRequest" }, acceptJson: true }
+    );
+    if (!fb.ok) return [];
+    return parseAjioJson(fb.text);
+  }
   return parseAjioJson(res.text);
 }
 
@@ -608,23 +670,31 @@ export async function scrapeAjio(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function nykaaStrategy1(): Promise<InternetDeal[]> {
-  // Deep navigation: home → deals page (full session with cookies)
-  const res = await humanDeepNavigate([
+  const res = await novaDeepNavigate(
+    ["https://www.nykaa.com/", "https://www.nykaa.com/sp/deals-page/deals"],
+    { waitForSelector: "img[src*='nykaa']", settleMs: 1500 }
+  );
+  if (res.ok) return parseNykaaHtml(res.text);
+  const fb = await humanDeepNavigate([
     "https://www.nykaa.com/",
     "https://www.nykaa.com/sp/deals-page/deals",
   ]);
-  if (!res.ok) return [];
-  return parseNykaaHtml(res.text);
+  if (!fb.ok) return [];
+  return parseNykaaHtml(fb.text);
 }
 
 async function nykaaStrategy2(): Promise<InternetDeal[]> {
-  // Deep navigation: home → offers
-  const res = await humanDeepNavigate([
+  const res = await novaDeepNavigate(
+    ["https://www.nykaa.com/", "https://www.nykaa.com/sp/offer-page/offers"],
+    { waitForSelector: "img[src*='nykaa']", settleMs: 1500 }
+  );
+  if (res.ok) return parseNykaaHtml(res.text);
+  const fb = await humanDeepNavigate([
     "https://www.nykaa.com/",
     "https://www.nykaa.com/sp/offer-page/offers",
   ]);
-  if (!res.ok) return [];
-  return parseNykaaHtml(res.text);
+  if (!fb.ok) return [];
+  return parseNykaaHtml(fb.text);
 }
 
 async function nykaaStrategy3(): Promise<InternetDeal[]> {
@@ -714,23 +784,31 @@ export async function scrapeNykaa(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function shopsyStrategy1(): Promise<InternetDeal[]> {
-  // Deep navigation: home → deals
-  const res = await humanDeepNavigate([
+  const res = await novaDeepNavigate(
+    ["https://www.shopsy.in/", "https://www.shopsy.in/deals"],
+    { waitForSelector: "img[src*='rukminim']", settleMs: 1500 }
+  );
+  if (res.ok) return parseShopsyHtml(res.text);
+  const fb = await humanDeepNavigate([
     "https://www.shopsy.in/",
     "https://www.shopsy.in/deals",
   ]);
-  if (!res.ok) return [];
-  return parseShopsyHtml(res.text);
+  if (!fb.ok) return [];
+  return parseShopsyHtml(fb.text);
 }
 
 async function shopsyStrategy2(): Promise<InternetDeal[]> {
-  // Deep navigation: home → all-offers
-  const res = await humanDeepNavigate([
+  const res = await novaDeepNavigate(
+    ["https://www.shopsy.in/", "https://www.shopsy.in/all-offers"],
+    { waitForSelector: "img[src*='rukminim']", settleMs: 1500 }
+  );
+  if (res.ok) return parseShopsyHtml(res.text);
+  const fb = await humanDeepNavigate([
     "https://www.shopsy.in/",
     "https://www.shopsy.in/all-offers",
   ]);
-  if (!res.ok) return [];
-  return parseShopsyHtml(res.text);
+  if (!fb.ok) return [];
+  return parseShopsyHtml(fb.text);
 }
 
 function parseShopsyHtml(html: string): InternetDeal[] {
