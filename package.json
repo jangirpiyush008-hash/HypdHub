@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "telegram:login": "node scripts/create-telegram-session.mjs",
-    "telegram:check": "node scripts/check-telegram-channels.mjs",
-    "postinstall": "playwright install chromium && ls -la /root/.cache/ms-playwright/ 2>&1 || echo 'playwright install skipped'"
+    "telegram:check": "node scripts/check-telegram-channels.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.102.0",
