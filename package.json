@@ -9,7 +9,7 @@
     "lint": "next lint",
     "telegram:login": "node scripts/create-telegram-session.mjs",
     "telegram:check": "node scripts/check-telegram-channels.mjs",
-    "postinstall": "playwright install chromium chromium-headless-shell || echo 'playwright install skipped'"
+    "postinstall": "playwright install chromium && ls -la /root/.cache/ms-playwright/ 2>&1 || echo 'playwright install skipped'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.102.0",
