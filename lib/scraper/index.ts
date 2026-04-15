@@ -34,6 +34,11 @@ const CACHE_FRESH_MINUTES = 10;
 let memCache: { deals: InternetDeal[]; sources: string[]; scrapedAt: string; fetchedAt: number } | null = null;
 const MEM_CACHE_MS = CACHE_FRESH_MINUTES * 60 * 1000;
 
+/** Force the next scrapeAllMarketplaces() call to bypass mem cache. */
+export function clearScraperMemCache() {
+  memCache = null;
+}
+
 export async function scrapeAllMarketplaces(): Promise<{
   deals: InternetDeal[];
   sources: string[];

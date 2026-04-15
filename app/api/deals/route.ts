@@ -132,6 +132,11 @@ function hypdProductsToDeals(hypd: Awaited<ReturnType<typeof fetchHypdProducts>>
 const convertedCache = new Map<string, { data: unknown; fetchedAt: number }>();
 const DEALS_CACHE_MS = 5 * 60_000;
 
+/** Called by /api/refresh POST — wipes the per-creator cache so the next /deals GET re-fetches. */
+export function clearDealsCache() {
+  convertedCache.clear();
+}
+
 export async function GET(request: NextRequest) {
   const now = Date.now();
 
@@ -140,13 +145,14 @@ export async function GET(request: NextRequest) {
   const marketplace = searchParams.get("marketplace");
   const minPrice = Number(searchParams.get("minPrice") ?? "0");
   const maxPrice = Number(searchParams.get("maxPrice") ?? "999999");
+  const bustCache = searchParams.get("refresh") === "1";
 
   const creator = await fetchCurrentHypdCreator().catch(() => null);
   const creatorUsername = creator?.hypdUsername ?? "hypdhub";
 
   const creatorCacheKey = `${creatorUsername}:${marketplace ?? "All"}:${minPrice}:${maxPrice}`;
   const cached = convertedCache.get(creatorCacheKey);
-  if (cached && now - cached.fetchedAt < DEALS_CACHE_MS) {
+  if (!bustCache && cached && now - cached.fetchedAt < DEALS_CACHE_MS) {
     return NextResponse.json(cached.data);
   }
 
@@ -200,7 +206,15 @@ export async function GET(request: NextRequest) {
 
   for (const key of Object.keys(topDealsByMarketplace)) {
     topDealsByMarketplace[key] = topDealsByMarketplace[key]
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => {
+        // Cheapest-first. Items with no price (e.g. HYPD) sink to the bottom.
+        const ap = a.currentPrice;
+        const bp = b.currentPrice;
+        if (ap == null && bp == null) return b.score - a.score;
+        if (ap == null) return 1;
+        if (bp == null) return -1;
+        return ap - bp;
+      })
       .slice(0, dealsPerMarketplace);
   }
 

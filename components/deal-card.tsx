@@ -39,7 +39,12 @@ export function DealCard({
   return (
     <article className="card-hover overflow-hidden rounded-[1.35rem] bg-surface-card shadow-ambient">
       <div className={compact ? "h-40" : "h-56"}>
-        <DealThumb name={deal.title} category={deal.category} thumbClass={thumbGradients[deal.marketplace]} />
+        <DealThumb
+          name={deal.title}
+          category={deal.category}
+          thumbClass={thumbGradients[deal.marketplace]}
+          imageUrl={deal.imageUrl}
+        />
       </div>
 
       <div className="space-y-4 p-5">

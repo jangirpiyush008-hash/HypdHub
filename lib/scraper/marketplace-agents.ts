@@ -334,10 +334,142 @@ export async function scrapeFlipkart(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 // MEESHO
 // ═══════════════════════════════════════════════════════════════════
-// Stub scraper — Meesho surfaces reliable deal data through our Telegram
-// ingestion and Supabase seeds, so live scraping isn't wired up yet.
+// Meesho has aggressive bot protection. We try three angles:
+//   1. Deep-nav to /deals and parse embedded Next.js data (__NEXT_DATA__ or
+//      window.__INITIAL_STATE__) — works when Meesho returns server-rendered
+//      HTML to our browser-like session.
+//   2. Parse any JSON-LD product blocks on deals / lowest-price pages.
+//   3. Image + price regex on <img> tags inside their product grid (last
+//      resort, used when JS hydration has stripped structured data).
+
+const MEESHO_IMG_HOST = /(?:images\.meesho\.com|imghost\.meesho\.com|mscassets\.meesho\.com|images\.mimg\.pro)/;
+
+function parseMeeshoNextData(html: string): InternetDeal[] {
+  const deals: InternetDeal[] = [];
+  // __NEXT_DATA__ payload
+  const m = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!m) return deals;
+  try {
+    const data = JSON.parse(m[1]);
+    // Meesho stashes product arrays in various places depending on page.
+    // Walk the tree and collect anything that looks like a product.
+    const stack: unknown[] = [data];
+    const seen = new Set<string>();
+    while (stack.length && deals.length < 20) {
+      const node = stack.pop();
+      if (!node || typeof node !== "object") continue;
+      const rec = node as Record<string, unknown>;
+      // Product shape heuristic
+      const name = (rec.name ?? rec.product_name ?? rec.title) as string | undefined;
+      const price = Number(rec.price ?? rec.discounted_price ?? rec.min_price ?? 0);
+      const mrp = Number(rec.original_price ?? rec.mrp ?? 0) || undefined;
+      const img = (rec.image ?? rec.product_image ?? (Array.isArray(rec.images) ? (rec.images[0] as Record<string, unknown>)?.url : undefined)) as string | undefined;
+      const prodId = (rec.product_id ?? rec.id ?? rec.pid) as string | number | undefined;
+      if (name && price > 0 && price < 100000 && typeof name === "string" && name.length > 4) {
+        const url = prodId ? `https://www.meesho.com/product/${prodId}` : "https://www.meesho.com/deals";
+        const key = `${name}::${price}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          deals.push(makeDeal({
+            title: name,
+            marketplace: "Meesho",
+            currentPrice: price,
+            originalPrice: mrp && mrp > price ? mrp : undefined,
+            url,
+            imageUrl: typeof img === "string" ? img : undefined,
+          }));
+        }
+      }
+      for (const v of Object.values(rec)) {
+        if (v && typeof v === "object") stack.push(v);
+      }
+    }
+  } catch {
+    /* ignore malformed */
+  }
+  return deals;
+}
+
+function parseMeeshoJsonLd(html: string): InternetDeal[] {
+  const deals: InternetDeal[] = [];
+  const blocks = Array.from(html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi));
+  for (const match of blocks) {
+    try {
+      const data = JSON.parse(match[1]);
+      const items = Array.isArray(data) ? data : data?.itemListElement ?? [data];
+      for (const wrap of items) {
+        const item = wrap?.item ?? wrap;
+        const name = item?.name as string | undefined;
+        const price = parseFloat(item?.offers?.price ?? item?.offers?.lowPrice ?? "0");
+        const image = item?.image;
+        const itemUrl = item?.url as string | undefined;
+        if (name && price > 0) {
+          deals.push(makeDeal({
+            title: name,
+            marketplace: "Meesho",
+            currentPrice: price,
+            url: itemUrl?.startsWith("http") ? itemUrl : "https://www.meesho.com/deals",
+            imageUrl: typeof image === "string" ? image : Array.isArray(image) ? image[0] : undefined,
+          }));
+        }
+      }
+    } catch { /* skip */ }
+  }
+  return deals;
+}
+
+function parseMeeshoImagePrice(html: string): InternetDeal[] {
+  const deals: InternetDeal[] = [];
+  const imgPattern = new RegExp(
+    `<img[^>]+src=["'](https:\\/\\/(?:${MEESHO_IMG_HOST.source.slice(1, -1)})[^"']+)["'][^>]*(?:alt|title)=["']([^"']{5,120})["']`,
+    "gi"
+  );
+  for (const m of html.matchAll(imgPattern)) {
+    const imageUrl = m[1];
+    const title = m[2];
+    const idx = m.index ?? 0;
+    const nearby = html.slice(idx, idx + 1500);
+    const priceMatch = nearby.match(/₹\s*([0-9][0-9,]{1,7})/);
+    if (priceMatch) {
+      const price = parseFloat(priceMatch[1].replace(/,/g, ""));
+      if (price > 0 && price < 50000) {
+        deals.push(makeDeal({
+          title,
+          marketplace: "Meesho",
+          currentPrice: price,
+          url: "https://www.meesho.com/deals",
+          imageUrl,
+        }));
+      }
+    }
+    if (deals.length >= 12) break;
+  }
+  return deals;
+}
+
+async function meeshoStrategy(path: string): Promise<InternetDeal[]> {
+  const res = await humanDeepNavigate([
+    "https://www.meesho.com/",
+    `https://www.meesho.com${path}`,
+  ]);
+  if (!res.ok) return [];
+  const html = res.text;
+  const fromNext = parseMeeshoNextData(html);
+  if (fromNext.length > 0) return fromNext.slice(0, 12);
+  const fromLd = parseMeeshoJsonLd(html);
+  if (fromLd.length > 0) return fromLd.slice(0, 12);
+  return parseMeeshoImagePrice(html).slice(0, 12);
+}
 
 export async function scrapeMeesho(): Promise<InternetDeal[]> {
+  const result = await tryStrategies([
+    { name: "meesho-deals", fn: () => meeshoStrategy("/deals").then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
+    { name: "meesho-lowest", fn: () => meeshoStrategy("/lowest-price-products").then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
+    { name: "meesho-offers", fn: () => meeshoStrategy("/offers").then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
+  ]);
+  if (result) {
+    try { return JSON.parse(result.response.text); } catch { return []; }
+  }
   return [];
 }
 
