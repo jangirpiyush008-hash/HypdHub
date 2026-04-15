@@ -51,7 +51,7 @@ export async function scrapeAllMarketplaces(opts: { force?: boolean } = {}): Pro
   // Nova concurrency + per-marketplace timeouts.
   if (opts.force) {
     clearScraperMemCache();
-    await refreshAllInBackground();
+    await runScrapeAll({ bypassFreshCheck: true });
     // After the scrape, the file cache holds fresh per-marketplace data.
     const fileCached = await getAllCachedDeals();
     const result = {
@@ -90,31 +90,42 @@ export async function scrapeAllMarketplaces(opts: { force?: boolean } = {}): Pro
  * Background: scrape live data from marketplaces
  */
 let refreshRunning = false;
-async function refreshAllInBackground(): Promise<void> {
-  if (refreshRunning) return;
-  refreshRunning = true;
+let inFlight: Promise<void> | null = null;
 
-  try {
-    for (const s of SCRAPERS) {
-      try {
+async function runScrapeAll(opts: { bypassFreshCheck?: boolean } = {}): Promise<void> {
+  for (const s of SCRAPERS) {
+    try {
+      if (!opts.bypassFreshCheck) {
         const cached = await getCachedDeals(s.name);
         if (cached && isCacheFresh(cached, CACHE_FRESH_MINUTES)) continue;
-
-        const deals = await s.fn();
-        if (deals.length > 0) {
-          await setCachedDeals(s.name, {
-            deals,
-            source: "live",
-            scrapedAt: new Date().toISOString(),
-            strategy: "nova-agent",
-          });
-        }
-      } catch {
-        // Skip failed marketplace
       }
+
+      const deals = await s.fn();
+      if (deals.length > 0) {
+        await setCachedDeals(s.name, {
+          deals,
+          source: "live",
+          scrapedAt: new Date().toISOString(),
+          strategy: "nova-agent",
+        });
+      }
+    } catch {
+      // Skip failed marketplace
     }
-    memCache = null;
-  } finally {
-    refreshRunning = false;
   }
+  memCache = null;
+}
+
+async function refreshAllInBackground(): Promise<void> {
+  if (refreshRunning && inFlight) return inFlight;
+  refreshRunning = true;
+  inFlight = (async () => {
+    try {
+      await runScrapeAll();
+    } finally {
+      refreshRunning = false;
+      inFlight = null;
+    }
+  })();
+  return inFlight;
 }
