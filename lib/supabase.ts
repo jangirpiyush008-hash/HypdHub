@@ -1,14 +1,44 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+// Lazy-instantiated client. Needed because Next.js collects page data at
+// build time, and during a Docker build env vars aren't present — calling
+// createClient() at module load with empty strings throws "supabaseUrl is
+// required" and fails the whole build. Proxy defers construction until a
+// real method is invoked (i.e. at request time, after env is populated).
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+let _client: SupabaseClient | null = null;
+function getClient(): SupabaseClient {
+  if (_client) return _client;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase env missing: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    );
+  }
+  _client = createClient(url, key);
+  return _client;
+}
 
-// Server-side client with service role key for admin operations
-export function createServerSupabase() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? supabaseAnonKey;
-  return createClient(supabaseUrl, serviceKey);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    const c = getClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const value = (c as any)[prop];
+    return typeof value === "function" ? value.bind(c) : value;
+  },
+});
+
+// Server-side client with service role key for admin operations.
+export function createServerSupabase(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !serviceKey) {
+    throw new Error("Supabase env missing for server client");
+  }
+  return createClient(url, serviceKey);
 }
 
 export type DbDeal = {
