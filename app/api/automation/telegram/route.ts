@@ -8,6 +8,7 @@ import {
 import { getOfficialTelegramBotToken } from "@/lib/telegram-official-bot";
 import { registerWebhooksForCreator } from "@/lib/automations/webhook-registration";
 import { getRunLog } from "@/lib/automations/run-log";
+import { ensureOfficialWebhookRegistered } from "@/lib/automations/official-webhook";
 
 export async function GET() {
   const creator = await fetchCurrentHypdCreator();
@@ -47,14 +48,18 @@ export async function POST(request: Request) {
 
   const result = await saveTelegramAutomationsForCreator(creator.id, automations);
 
-  // Auto-register Telegram webhooks for any custom bot tokens the user saved
+  // Auto-register per-creator webhooks for custom bot tokens
   const webhooks = await registerWebhooksForCreator(creator.id, automations);
+
+  // Ensure the shared HYPD-official bot webhook is registered too (idempotent)
+  const officialWebhook = await ensureOfficialWebhookRegistered();
 
   return NextResponse.json({
     ok: true,
     updatedAt: result.updatedAt,
     automations: result.automations,
     webhooks,
+    officialWebhook,
     officialBotConfigured: Boolean(getOfficialTelegramBotToken())
   });
 }

@@ -32,6 +32,7 @@ type TelegramAutomationResponse = {
   automations?: TelegramAutomation[];
   recentRuns?: RunLogEntry[];
   webhooks?: Record<string, WebhookRegistration>;
+  officialWebhook?: WebhookRegistration;
   message?: string;
   officialBotConfigured?: boolean;
 };
@@ -447,6 +448,7 @@ export function ConnectGrid() {
   const [isRunning, setIsRunning] = useState(false);
   const [recentRuns, setRecentRuns] = useState<RunLogEntry[]>([]);
   const [webhooks, setWebhooks] = useState<Record<string, WebhookRegistration> | null>(null);
+  const [officialWebhook, setOfficialWebhook] = useState<WebhookRegistration | null>(null);
 
   useEffect(() => {
     fetch("/api/automation/telegram", { cache: "no-store" })
@@ -481,6 +483,7 @@ export function ConnectGrid() {
         setSavedAt(result.updatedAt ?? null);
         setOfficialBotConfigured(Boolean(result.officialBotConfigured));
         setWebhooks(result.webhooks ?? null);
+        setOfficialWebhook(result.officialWebhook ?? null);
         setStatus("Saved");
       } else {
         setStatus(result.message ?? "Save failed.");
@@ -557,16 +560,28 @@ export function ConnectGrid() {
       ))}
 
       {/* Webhook registration status (after save) */}
-      {webhooks && Object.keys(webhooks).length > 0 ? (
+      {(webhooks && Object.keys(webhooks).length > 0) || officialWebhook ? (
         <div className="rounded-xl bg-surface-card p-4">
           <h3 className="mb-2 text-sm font-bold text-text">Webhook Status</h3>
           <ul className="space-y-1 text-xs">
-            {Object.entries(webhooks).map(([token, info]) => (
-              <li key={token} className={`${info.status === "registered" ? "text-tertiary" : info.status === "error" ? "text-primary" : "text-muted"}`}>
-                <span className="font-mono">{token}</span>{" · "}
-                {info.status === "registered" ? `registered → ${info.url}` : info.status === "skipped" ? `skipped · ${info.reason}` : `error · ${info.reason}`}
+            {officialWebhook ? (
+              <li className={`${officialWebhook.status === "registered" ? "text-tertiary" : officialWebhook.status === "error" ? "text-primary" : "text-muted"}`}>
+                <span className="font-mono">HYPD Official bot</span>{" · "}
+                {officialWebhook.status === "registered"
+                  ? `registered → ${officialWebhook.url}`
+                  : officialWebhook.status === "skipped"
+                  ? `skipped · ${officialWebhook.reason}`
+                  : `error · ${officialWebhook.reason}`}
               </li>
-            ))}
+            ) : null}
+            {webhooks
+              ? Object.entries(webhooks).map(([token, info]) => (
+                  <li key={token} className={`${info.status === "registered" ? "text-tertiary" : info.status === "error" ? "text-primary" : "text-muted"}`}>
+                    <span className="font-mono">{token}</span>{" · "}
+                    {info.status === "registered" ? `registered → ${info.url}` : info.status === "skipped" ? `skipped · ${info.reason}` : `error · ${info.reason}`}
+                  </li>
+                ))
+              : null}
           </ul>
         </div>
       ) : null}
