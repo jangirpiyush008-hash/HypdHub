@@ -41,4 +41,6 @@ aptPkgs = [
 
 [variables]
 NODE_OPTIONS = "--max-old-space-size=512"
-PLAYWRIGHT_BROWSERS_PATH = "/app/.cache/ms-playwright"
+# Leave PLAYWRIGHT_BROWSERS_PATH unset — Playwright's default is
+# /root/.cache/ms-playwright, which is where our runtime was looking
+# anyway. Overriding it caused install/runtime path mismatch.
