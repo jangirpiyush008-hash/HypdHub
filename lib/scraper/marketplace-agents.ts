@@ -199,8 +199,24 @@ async function myntraStrategy4(): Promise<InternetDeal[]> {
   } catch { return []; }
 }
 
+async function myntraStrategy5(): Promise<InternetDeal[]> {
+  // Nova → /deals HTML, parsed with generic img+price regex.
+  // Myntra ships ~5MB of SSR HTML at /deals with full product cards.
+  const res = await novaDeepNavigate(
+    ["https://www.myntra.com/", "https://www.myntra.com/deals"],
+    { waitForSelector: "img[src*='myntassets']", settleMs: 1500 }
+  );
+  if (!res.ok) return [];
+  return parseImagePriceGeneric(res.text, {
+    marketplace: "Myntra",
+    imgHostPattern: "(?:assets|constant|cdn)\\.myntassets\\.com",
+    fallbackUrl: "https://www.myntra.com/deals",
+  });
+}
+
 export async function scrapeMyntra(): Promise<InternetDeal[]> {
   const result = await tryStrategies([
+    { name: "myntra-nova-html", fn: () => myntraStrategy5().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "myntra-search-api", fn: () => myntraStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "myntra-deals-api", fn: () => myntraStrategy2().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "myntra-bestsellers", fn: () => myntraStrategy3().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
@@ -319,25 +335,14 @@ function parseFlipkartHtml(html: string, pageUrl: string): InternetDeal[] {
     } catch { /* skip */ }
   }
 
-  // Strategy B: Image + price pattern matching
+  // Strategy B: Image + price pattern matching (attr-order-agnostic)
   if (deals.length === 0) {
-    const imgPatterns = html.matchAll(/<img[^>]+src=["'](https:\/\/rukminim[^"']+)["'][^>]*(?:alt|title)=["']([^"']{5,100})["'][^>]*>/gi);
-    for (const m of imgPatterns) {
-      const imageUrl = m[1];
-      const title = m[2];
-      const idx = m.index ?? 0;
-      const nearby = html.slice(idx, idx + 2000);
-      const priceMatch = nearby.match(/₹\s*([0-9][0-9,]{1,8})/);
-      const mrpMatch = nearby.match(/₹\s*([0-9][0-9,]{1,8})[\s\S]{0,50}?₹\s*([0-9][0-9,]{1,8})/);
-      if (priceMatch) {
-        const price = parseFloat(priceMatch[1].replace(/,/g, ""));
-        const mrp = mrpMatch ? parseFloat(mrpMatch[2].replace(/,/g, "")) : undefined;
-        if (price > 0 && price < 100000) {
-          deals.push(makeDeal({ title, marketplace: "Flipkart", currentPrice: price, originalPrice: mrp, url: pageUrl, imageUrl }));
-        }
-      }
-      if (deals.length >= 12) break;
-    }
+    const generic = parseImagePriceGeneric(html, {
+      marketplace: "Flipkart",
+      imgHostPattern: "rukminim[0-9]*\\.flixcart\\.com",
+      fallbackUrl: pageUrl,
+    });
+    deals.push(...generic);
   }
 
   // Strategy C: Product title patterns
@@ -498,31 +503,56 @@ function parseMeeshoNextData(html: string): InternetDeal[] {
 
 /** Strategy 3: image-anchored regex on listing HTML. */
 function parseMeeshoImagePrice(html: string): InternetDeal[] {
+  return parseImagePriceGeneric(html, {
+    marketplace: "Meesho",
+    imgHostPattern: MEESHO_IMG_HOSTS,
+    fallbackUrl: "https://www.meesho.com/deals",
+  });
+}
+
+/**
+ * Generic image+price HTML parser, attribute-order-agnostic.
+ * Finds <img> tags whose src matches imgHostPattern, pulls alt/title as title,
+ * scans ~2KB window around the img for a ₹ price.
+ */
+function parseImagePriceGeneric(
+  html: string,
+  opts: { marketplace: Marketplace; imgHostPattern: string; fallbackUrl: string }
+): InternetDeal[] {
   const deals: InternetDeal[] = [];
-  const imgPattern = new RegExp(
-    `<img[^>]+src=["'](https:\\/\\/(?:${MEESHO_IMG_HOSTS})[^"']+)["'][^>]*(?:alt|title)=["']([^"']{5,120})["']`,
-    "gi"
-  );
   const seen = new Set<string>();
-  for (const m of html.matchAll(imgPattern)) {
-    const imageUrl = m[1];
-    const title = m[2];
+  // Grab every <img ...> tag, then filter by host and extract src/alt regardless of order.
+  const imgTagRe = /<img\b([^>]*)>/gi;
+  const hostRe = new RegExp(`https?:\\/\\/(?:${opts.imgHostPattern})[^"' ]+`, "i");
+  for (const m of html.matchAll(imgTagRe)) {
+    const attrs = m[1];
+    const srcM = attrs.match(/\bsrc=["']([^"']+)["']/i);
+    if (!srcM) continue;
+    const src = srcM[1];
+    if (!hostRe.test(src)) continue;
+    const altM = attrs.match(/\b(?:alt|title)=["']([^"']{5,160})["']/i);
+    if (!altM) continue;
+    const title = altM[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+    if (title.length < 5) continue;
     const idx = m.index ?? 0;
-    const nearby = html.slice(idx, idx + 1500);
+    // Look both before and after the img tag — price can come on either side.
+    const nearby = html.slice(Math.max(0, idx - 800), idx + 2000);
     const priceMatch = nearby.match(/₹\s*([0-9][0-9,]{1,7})/);
     if (!priceMatch) continue;
     const price = parseFloat(priceMatch[1].replace(/,/g, ""));
-    if (!(price > 0 && price < 50000)) continue;
+    if (!(price > 0 && price < 200000)) continue;
     const key = title.toLowerCase().slice(0, 40);
     if (seen.has(key)) continue;
     seen.add(key);
-    deals.push(makeDeal({
-      title,
-      marketplace: "Meesho",
-      currentPrice: price,
-      url: "https://www.meesho.com/deals",
-      imageUrl,
-    }));
+    deals.push(
+      makeDeal({
+        title,
+        marketplace: opts.marketplace,
+        currentPrice: price,
+        url: opts.fallbackUrl,
+        imageUrl: src,
+      })
+    );
     if (deals.length >= 16) break;
   }
   return deals;
@@ -652,8 +682,23 @@ function parseAjioJson(text: string): InternetDeal[] {
   } catch { return []; }
 }
 
+async function ajioStrategy4(): Promise<InternetDeal[]> {
+  // Home page HTML — /sale returns 404, category API blocked.
+  const res = await novaDeepNavigate(
+    ["https://www.ajio.com/"],
+    { waitForSelector: "img[src*='ajio']", settleMs: 1500 }
+  );
+  if (!res.ok) return [];
+  return parseImagePriceGeneric(res.text, {
+    marketplace: "Ajio",
+    imgHostPattern: "assets\\.ajio\\.com|images\\.ajio\\.com|cdn\\.ajio\\.com",
+    fallbackUrl: "https://www.ajio.com/",
+  });
+}
+
 export async function scrapeAjio(): Promise<InternetDeal[]> {
   const result = await tryStrategies([
+    { name: "ajio-home-html", fn: () => ajioStrategy4().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "ajio-category-api", fn: () => ajioStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "ajio-new-arrivals", fn: () => ajioStrategy2().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "ajio-sale-api", fn: () => ajioStrategy3().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
@@ -723,23 +768,11 @@ async function nykaaStrategy3(): Promise<InternetDeal[]> {
 }
 
 function parseNykaaHtml(html: string): InternetDeal[] {
-  const deals: InternetDeal[] = [];
-
-  // Strategy A: Nykaa image pattern
-  const imgPatterns = html.matchAll(/<img[^>]+src=["'](https:\/\/(?:images-static\.nykaa\.com|adn-static[^"']+nykaa[^"']+)[^"']+)["'][^>]*(?:alt|title)=["']([^"']{5,80})["']/gi);
-  for (const m of imgPatterns) {
-    const title = m[2].trim();
-    const idx = m.index ?? 0;
-    const nearby = html.slice(idx, idx + 2000);
-    const priceMatch = nearby.match(/₹\s*([0-9][0-9,]{1,8})/);
-    const mrpMatch = nearby.match(/MRP\D{0,10}?₹\s*([0-9][0-9,]{1,8})/i);
-    const price = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, "")) : 0;
-    const mrp = mrpMatch ? parseFloat(mrpMatch[1].replace(/,/g, "")) : undefined;
-    if (title && price > 0) {
-      deals.push(makeDeal({ title, marketplace: "Nykaa", currentPrice: price, originalPrice: mrp, url: "https://www.nykaa.com/sp/deals-page/deals", imageUrl: m[1], category: "Beauty" }));
-    }
-    if (deals.length >= 12) break;
-  }
+  const deals: InternetDeal[] = parseImagePriceGeneric(html, {
+    marketplace: "Nykaa",
+    imgHostPattern: "(?:images-static|adn-static[0-9]*)\\.nykaa\\.com",
+    fallbackUrl: "https://www.nykaa.com/sp/deals-page/deals",
+  });
 
   // Strategy B: JSON data in page
   if (deals.length === 0) {
@@ -766,8 +799,19 @@ function parseNykaaHtml(html: string): InternetDeal[] {
   return deals;
 }
 
+async function nykaaStrategy4(): Promise<InternetDeal[]> {
+  // Home page has rich SSR content with ₹ prices (confirmed via probe).
+  const res = await novaDeepNavigate(
+    ["https://www.nykaa.com/"],
+    { waitForSelector: "img[src*='nykaa']", settleMs: 1500 }
+  );
+  if (!res.ok) return [];
+  return parseNykaaHtml(res.text);
+}
+
 export async function scrapeNykaa(): Promise<InternetDeal[]> {
   const result = await tryStrategies([
+    { name: "nykaa-home-html", fn: () => nykaaStrategy4().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "nykaa-deals-page", fn: () => nykaaStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "nykaa-offers", fn: () => nykaaStrategy2().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "nykaa-search-api", fn: () => nykaaStrategy3().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
@@ -837,29 +881,15 @@ function parseShopsyHtml(html: string): InternetDeal[] {
     } catch { /* skip */ }
   }
 
-  // Fallback: image + price patterns
+  // Fallback: image + price patterns (attr-order-agnostic)
   if (deals.length === 0) {
-    const imgPatterns = html.matchAll(/<img[^>]+src=["'](https:\/\/rukminim[^"']+)["'][^>]*alt=["']([^"']{5,80})["']/gi);
-    for (const m of imgPatterns) {
-      const idx = m.index ?? 0;
-      const nearby = html.slice(idx, idx + 2000);
-      const priceMatch = nearby.match(/₹\s*([0-9][0-9,]{1,8})/);
-      if (priceMatch) {
-        const price = parseFloat(priceMatch[1].replace(/,/g, ""));
-        if (price > 0 && price < 50000) {
-          deals.push(makeDeal({
-            title: m[2],
-            marketplace: "Shopsy",
-            currentPrice: price,
-            url: "https://www.shopsy.in/deals",
-            imageUrl: m[1],
-          }));
-        }
-      }
-      if (deals.length >= 12) break;
-    }
+    const generic = parseImagePriceGeneric(html, {
+      marketplace: "Shopsy",
+      imgHostPattern: "rukminim[0-9]*\\.flixcart\\.com|rukmini1\\.flixcart\\.com",
+      fallbackUrl: "https://www.shopsy.in/deals",
+    });
+    deals.push(...generic);
   }
-
   return deals.slice(0, 12);
 }
 
