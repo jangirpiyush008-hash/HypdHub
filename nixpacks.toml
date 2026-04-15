@@ -1,49 +1,44 @@
-# Nixpacks config for Railway — installs Chromium + the native libs
-# Playwright needs to run headless Chrome for Nova (lib/scraper/nova-browser.ts).
+# Railway/Nixpacks config.
 #
-# Without these, `playwright install chromium` downloads the binary but fails
-# to launch because the container is missing fontconfig, nss, libdrm, etc.
+# We deliberately DON'T pin Chromium via nix packages anymore — fighting
+# nixpkgs attribute names (xorg.libX11 etc) was fragile and broke the build.
+# Instead we rely on Playwright's own `install --with-deps chromium` which
+# apt-gets the right shared libs on Railway's Ubuntu-based Nixpacks image.
+#
+# The `NIXPACKS_APT_PKGS` env lets us add any missing base libs without
+# touching this file.
 
 [phases.setup]
-# System packages required by headless Chromium.
-# Reference: https://playwright.dev/docs/browsers#install-system-dependencies
-nixPkgs = [
-  "nodejs_20",
-  "chromium",
-  "nss",
-  "nspr",
-  "cups",
-  "dbus",
-  "atk",
-  "at-spi2-atk",
-  "cairo",
-  "pango",
-  "gtk3",
-  "gdk-pixbuf",
-  "glib",
-  "fontconfig",
-  "freetype",
-  "alsa-lib",
-  "libdrm",
-  "libxkbcommon",
-  "mesa",
-  "expat",
-  "xorg.libX11",
-  "xorg.libXcomposite",
-  "xorg.libXdamage",
-  "xorg.libXext",
-  "xorg.libXfixes",
-  "xorg.libXrandr",
-  "xorg.libxcb",
+nixPkgs = ["nodejs_20"]
+aptPkgs = [
+  "wget",
+  "ca-certificates",
+  "fonts-liberation",
+  "libasound2",
+  "libatk-bridge2.0-0",
+  "libatk1.0-0",
+  "libatspi2.0-0",
+  "libcairo2",
+  "libcups2",
+  "libdbus-1-3",
+  "libdrm2",
+  "libgbm1",
+  "libglib2.0-0",
+  "libgtk-3-0",
+  "libnspr4",
+  "libnss3",
+  "libpango-1.0-0",
+  "libx11-6",
+  "libxcb1",
+  "libxcomposite1",
+  "libxdamage1",
+  "libxext6",
+  "libxfixes3",
+  "libxkbcommon0",
+  "libxrandr2",
+  "xdg-utils"
 ]
 
-[phases.install]
-# npm postinstall also runs `playwright install chromium`; this env lets
-# Playwright use the system-provided Chromium when available.
-cmds = ["npm ci --include=dev"]
-
 [variables]
-# Tell Playwright to skip its own download and use the Nix-provided Chromium.
-PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "0"
-# Memory-friendly Node heap for Railway hobby tier (512MB-1GB).
 NODE_OPTIONS = "--max-old-space-size=512"
+PLAYWRIGHT_BROWSERS_PATH = "/app/.cache/ms-playwright"
