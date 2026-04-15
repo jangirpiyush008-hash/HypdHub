@@ -331,6 +331,41 @@ export async function novaDeepNavigate(
   }
 }
 
+/**
+ * Diagnostic helper — tries to launch Chromium and returns raw error messages.
+ * Used by /api/nova-probe to surface why the browser won't start on a given
+ * deploy (missing system libs, wrong path, permission denied, etc).
+ */
+export async function novaLaunchProbe(): Promise<{
+  ok: boolean;
+  stage: string;
+  error?: string;
+  chromePath?: string;
+  browserVersion?: string;
+}> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const launched = await (chromiumExtra as any).launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    });
+    const version = await launched.version().catch(() => "unknown");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chromePath = ((chromiumExtra as any).executablePath?.() ?? "unknown") as string;
+    await launched.close();
+    return { ok: true, stage: "launched", browserVersion: version, chromePath };
+  } catch (e) {
+    return {
+      ok: false,
+      stage: "launch-failed",
+      error:
+        e instanceof Error
+          ? `${e.name}: ${e.message}\n${e.stack?.split("\n").slice(0, 10).join("\n")}`
+          : String(e),
+    };
+  }
+}
+
 /** Shut down the pooled browser — called on process exit / manual admin. */
 export async function novaShutdown(): Promise<void> {
   if (!browserPromise) return;

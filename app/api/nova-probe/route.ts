@@ -6,25 +6,35 @@
  * deploy issues (missing system libs, broken TLS, etc).
  */
 import { NextRequest, NextResponse } from "next/server";
-import type { novaFetch as NovaFetchFn } from "@/lib/scraper/nova-browser";
+import type { novaFetch as NovaFetchFn, novaLaunchProbe as NovaLaunchProbeFn } from "@/lib/scraper/nova-browser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
-  const url = new URL(request.url).searchParams.get("url") ?? "https://www.meesho.com/deals";
+  const params = new URL(request.url).searchParams;
+  const url = params.get("url") ?? "https://www.meesho.com/deals";
+  const mode = params.get("mode") ?? "fetch";
   const started = Date.now();
 
   // Lazy import so a Chromium-launch failure returns a JSON error instead of
   // crashing the whole bundle at module load.
   let fetchFn: typeof NovaFetchFn | null = null;
+  let launchProbeFn: typeof NovaLaunchProbeFn | null = null;
   let loadErr: string | null = null;
   try {
     const mod = await import("@/lib/scraper/nova-browser");
     fetchFn = mod.novaFetch;
+    launchProbeFn = mod.novaLaunchProbe;
   } catch (e) {
     loadErr = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+  }
+
+  // mode=launch → run the raw chromium launch probe and surface the real error
+  if (mode === "launch" && launchProbeFn) {
+    const result = await launchProbeFn();
+    return NextResponse.json({ ...result, elapsedMs: Date.now() - started });
   }
 
   if (!fetchFn) {
