@@ -118,15 +118,32 @@ function buildHypdStoreLink(url: URL, creatorUsername: string): HypdConversionRe
   };
 }
 
-function buildMarketplaceLinks(url: URL, creatorUsername: string, marketplace: Exclude<Marketplace, "HYPD Store" | "Unsupported">): HypdConversionResult {
+function buildMarketplaceLinks(
+  url: URL,
+  creatorUsername: string,
+  marketplace: Exclude<Marketplace, "HYPD Store" | "Unsupported">,
+  opts?: { creatorHypdUserId?: string; realClickId?: string }
+): HypdConversionResult {
   const normalizedUsername = sanitizeUsername(creatorUsername);
-  const clickId = makeClickId(`${marketplace}:${url.toString()}`);
+  // Hardcoded fallback — this is HYPD's generic pool siteid, used pre-login.
+  // Once we know the creator's real hypdUserId (after OTP), every link for
+  // that creator embeds it as af_siteid so attribution lands on them.
+  const GENERIC_SITEID = "68b81dcedc7e01ec6a4a8435";
+  const siteId = opts?.creatorHypdUserId && opts.creatorHypdUserId.length >= 16
+    ? opts.creatorHypdUserId
+    : GENERIC_SITEID;
+  // Prefer the real HYPD-issued clickid (random, 19+ chars) when the caller
+  // extracted it from a HYPD short-link path. Fall back to a deterministic
+  // local hash so anonymous users still get a stable link.
+  const clickId = opts?.realClickId && opts.realClickId.length >= 12
+    ? opts.realClickId
+    : makeClickId(`${marketplace}:${url.toString()}`);
   const shortLink = `https://hypd.store/${normalizedUsername}/afflink/${clickId}`;
   let expandedLink = url.toString();
 
   if (marketplace === "Myntra") {
     expandedLink = appendSearchParams(url, {
-      af_siteid: "68b81dcedc7e01ec6a4a8435",
+      af_siteid: siteId,
       clickid: clickId,
       utm_source: "Hypd",
       af_xp: "custom",
@@ -144,7 +161,7 @@ function buildMarketplaceLinks(url: URL, creatorUsername: string, marketplace: E
 
   if (marketplace === "Flipkart") {
     expandedLink = appendSearchParams(url, {
-      affExtParam1: "68b81dcedc7e01ec6a4a8435",
+      affExtParam1: siteId,
       affExtParam2: clickId,
       affid: "hypdfk"
     });
@@ -159,7 +176,7 @@ function buildMarketplaceLinks(url: URL, creatorUsername: string, marketplace: E
       product_name: "product",
       utm_source: "Hypd",
       clickid: clickId,
-      af_siteid: "68b81dcedc7e01ec6a4a8435"
+      af_siteid: siteId
     });
   }
 
@@ -167,7 +184,7 @@ function buildMarketplaceLinks(url: URL, creatorUsername: string, marketplace: E
     expandedLink = appendSearchParams(url, {
       _appId: "WA",
       _refId: "PP.ff3936aa-4f0e-4baf-a67f-023b7d287b35.MRUGHGDAVJTMBX9Y",
-      affExtParam1: "68b81dcedc7e01ec6a4a8435",
+      affExtParam1: siteId,
       affExtParam2: clickId,
       affid: "infhypd",
       cmpid: "AFF_infhypd"
@@ -177,7 +194,7 @@ function buildMarketplaceLinks(url: URL, creatorUsername: string, marketplace: E
   if (marketplace === "Nykaa") {
     expandedLink = appendSearchParams(url, {
       utm_source: "admitad",
-      utm_campaign: "2103564_68b81dcedc7e01ec6a4a8435",
+      utm_campaign: `2103564_${siteId}`,
       tagtag_uid: makeClickId(`nykaa:${clickId}`).replace(/^d/, "")
     });
   }
@@ -187,7 +204,7 @@ function buildMarketplaceLinks(url: URL, creatorUsername: string, marketplace: E
       utm_source: "Admitad",
       utm_medium: "affiliate",
       utm_campaign: "2103564",
-      utm_term: "sub_68b81dcedc7e01ec6a4a8435",
+      utm_term: `sub_${siteId}`,
       clickid: makeClickId(`ajio:${clickId}`).replace(/^d/, "69"),
       pid: "11",
       offer_id: "2",
@@ -211,7 +228,11 @@ function buildMarketplaceLinks(url: URL, creatorUsername: string, marketplace: E
   };
 }
 
-export function generateHypdConversion(sourceUrl: string, creatorUsername: string) {
+export function generateHypdConversion(
+  sourceUrl: string,
+  creatorUsername: string,
+  opts?: { creatorHypdUserId?: string; realClickId?: string }
+) {
   const input = sourceUrl.trim();
 
   if (!input) {
@@ -242,7 +263,22 @@ export function generateHypdConversion(sourceUrl: string, creatorUsername: strin
       } satisfies HypdConversionResult;
     }
 
-    return buildMarketplaceLinks(url, creatorUsername, marketplace);
+    return buildMarketplaceLinks(url, creatorUsername, marketplace, opts);
+  } catch {
+    return null;
+  }
+}
+
+/** Extracts the clickid segment from a HYPD short link like
+ *  https://hypd.store/<username>/afflink/<clickid>  */
+export function extractHypdClickId(shortLink: string): string | null {
+  try {
+    const u = new URL(shortLink);
+    if (!HYPD_HOSTS.has(u.hostname.toLowerCase())) return null;
+    const parts = u.pathname.split("/").filter(Boolean);
+    const idx = parts.indexOf("afflink");
+    if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
+    return null;
   } catch {
     return null;
   }

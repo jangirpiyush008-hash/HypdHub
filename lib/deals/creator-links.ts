@@ -21,7 +21,7 @@
 import { InternetDeal } from "@/lib/types";
 import { CreatorProfile } from "@/lib/types";
 import { UpstreamCookie, convertHypdMarketplaceLinkWithCookies } from "@/lib/hypd-server";
-import { generateHypdConversion } from "@/lib/hypd-links";
+import { generateHypdConversion, extractHypdClickId } from "@/lib/hypd-links";
 
 type Cached = { shortLink: string; expandedLink: string; fetchedAt: number };
 // Keyed by `${creatorId}::${sourceUrl}` — short links are stable per creator
@@ -58,13 +58,13 @@ async function convertOne(
   const hit = linkCache.get(key);
   if (hit && Date.now() - hit.fetchedAt < TTL_MS) return hit;
 
-  // Skip unsupported / HYPD-internal URLs — synchronous path handles those fine.
-  const localPreview = generateHypdConversion(sourceUrl, creator.hypdUsername);
-  if (!localPreview || localPreview.marketplace === "Unsupported") return null;
-  if (localPreview.marketplace === "HYPD Store") {
+  // Skip unsupported URLs entirely.
+  const probe = generateHypdConversion(sourceUrl, creator.hypdUsername);
+  if (!probe || probe.marketplace === "Unsupported") return null;
+  if (probe.marketplace === "HYPD Store") {
     const entry: Cached = {
-      shortLink: localPreview.shortLink,
-      expandedLink: localPreview.expandedLink,
+      shortLink: probe.shortLink,
+      expandedLink: probe.expandedLink,
       fetchedAt: Date.now(),
     };
     linkCache.set(key, entry);
@@ -73,15 +73,21 @@ async function convertOne(
 
   try {
     const payload = (await convertHypdMarketplaceLinkWithCookies(sourceUrl, creator, cookies)) as Record<string, unknown>;
-    const shortLink = String(payload.hypd_link ?? localPreview.shortLink);
-    // HYPD's product_link is sometimes the creator-tracked expanded URL —
-    // prefer it when it carries tracking params (af_siteid/clickid), else
-    // fall back to the local builder.
-    const hypdExpanded = String(payload.product_link ?? "");
-    const expandedLink =
-      hypdExpanded && /af_siteid=|affExtParam|clickid=|tagtag_uid=/.test(hypdExpanded)
-        ? hypdExpanded
-        : localPreview.expandedLink;
+    const shortLink = String(payload.hypd_link ?? probe.shortLink);
+    // Extract the REAL HYPD-issued clickid from the short-link path — this is
+    // the server-issued random id, not our deterministic local hash.
+    const realClickId = extractHypdClickId(shortLink) ?? undefined;
+    // Creator's HYPD user id becomes the af_siteid for all tracking.
+    const creatorHypdUserId = creator.hypdUserId;
+
+    // Rebuild the expanded link locally with creator-scoped siteid + real
+    // clickid so the user can copy a link that matches what HYPD's own
+    // redirect would produce.
+    const localized = generateHypdConversion(sourceUrl, creator.hypdUsername, {
+      creatorHypdUserId,
+      realClickId,
+    });
+    const expandedLink = localized?.expandedLink ?? probe.expandedLink;
 
     const entry: Cached = { shortLink, expandedLink, fetchedAt: Date.now() };
     linkCache.set(key, entry);
@@ -130,8 +136,11 @@ export async function convertDealsForCreator(
       };
     }
 
-    // Fallback: synchronous generator (today's behavior)
-    const local = generateHypdConversion(url, creator.hypdUsername);
+    // Fallback: synchronous generator — still uses the creator's hypdUserId
+    // as siteid so attribution lands on them even when HYPD API is unreachable.
+    const local = generateHypdConversion(url, creator.hypdUsername, {
+      creatorHypdUserId: creator.hypdUserId,
+    });
     if (!local || local.marketplace === "Unsupported") return deal;
     return {
       ...deal,
