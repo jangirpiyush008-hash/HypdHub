@@ -559,11 +559,12 @@ function parseImagePriceGeneric(
 }
 
 async function meeshoHtmlStrategy(path: string): Promise<InternetDeal[]> {
-  // Nova first — Meesho uses DataDome which blocks raw HTTP clients on sight.
-  let res = await novaDeepNavigate(
-    ["https://www.meesho.com/", `https://www.meesho.com${path}`],
-    { waitForSelector: "img[src*='meesho']", settleMs: 1500 }
-  );
+  // Nova single-hop — we verified novaFetch(/deals) returns 222KB through
+  // DataDome reliably; novaDeepNavigate was timing out on the /home precursor.
+  let res = await novaFetch(`https://www.meesho.com${path}`, {
+    settleMs: 1500,
+    waitForSelector: "img[src*='meesho']",
+  });
   if (!res.ok) {
     res = await humanDeepNavigate([
       "https://www.meesho.com/",
@@ -684,10 +685,10 @@ function parseAjioJson(text: string): InternetDeal[] {
 
 async function ajioStrategy4(): Promise<InternetDeal[]> {
   // Home page HTML — /sale returns 404, category API blocked.
-  const res = await novaDeepNavigate(
-    ["https://www.ajio.com/"],
-    { waitForSelector: "img[src*='ajio']", settleMs: 1500 }
-  );
+  const res = await novaFetch("https://www.ajio.com/", {
+    waitForSelector: "img[src*='ajio']",
+    settleMs: 1500,
+  });
   if (!res.ok) return [];
   return parseImagePriceGeneric(res.text, {
     marketplace: "Ajio",
@@ -801,10 +802,10 @@ function parseNykaaHtml(html: string): InternetDeal[] {
 
 async function nykaaStrategy4(): Promise<InternetDeal[]> {
   // Home page has rich SSR content with ₹ prices (confirmed via probe).
-  const res = await novaDeepNavigate(
-    ["https://www.nykaa.com/"],
-    { waitForSelector: "img[src*='nykaa']", settleMs: 1500 }
-  );
+  const res = await novaFetch("https://www.nykaa.com/", {
+    waitForSelector: "img[src*='nykaa']",
+    settleMs: 1500,
+  });
   if (!res.ok) return [];
   return parseNykaaHtml(res.text);
 }
