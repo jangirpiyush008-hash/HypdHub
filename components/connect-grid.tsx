@@ -12,12 +12,37 @@ import {
   TelegramAutomation
 } from "@/lib/automation-config";
 
+type WebhookRegistration =
+  | { status: "registered"; url: string }
+  | { status: "skipped"; reason: string }
+  | { status: "error"; reason: string };
+
+type RunLogEntry = {
+  automationId: string;
+  status: "delivered" | "skipped" | "error";
+  reason?: string;
+  sourceMessageId?: number;
+  destMessageId?: number;
+  at: string;
+};
+
 type TelegramAutomationResponse = {
   ok: boolean;
   updatedAt?: string;
   automations?: TelegramAutomation[];
+  recentRuns?: RunLogEntry[];
+  webhooks?: Record<string, WebhookRegistration>;
   message?: string;
   officialBotConfigured?: boolean;
+};
+
+type VerifyResponse = {
+  ok: boolean;
+  message?: string;
+  botUsername?: string;
+  chatId?: number | string;
+  type?: string;
+  title?: string;
 };
 
 type TelegramRunResponse = {
@@ -90,6 +115,19 @@ function Toggle({ label, checked, onChange }: {
   );
 }
 
+async function verify(action: "bot" | "chat", payload: Record<string, unknown>): Promise<VerifyResponse> {
+  try {
+    const res = await fetch("/api/automation/telegram/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...payload }),
+    });
+    return (await res.json()) as VerifyResponse;
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "network error" };
+  }
+}
+
 function AutomationCard({ automation, index, onChange, onRemove }: {
   automation: TelegramAutomation;
   index: number;
@@ -97,6 +135,30 @@ function AutomationCard({ automation, index, onChange, onRemove }: {
   onRemove: () => void;
 }) {
   const isOfficial = automation.sourceMode === "official_hypd";
+  const [botCheck, setBotCheck] = useState<VerifyResponse | null>(null);
+  const [srcCheck, setSrcCheck] = useState<VerifyResponse | null>(null);
+  const [destCheck, setDestCheck] = useState<VerifyResponse | null>(null);
+
+  async function checkBot() {
+    if (isOfficial) {
+      setBotCheck({ ok: true, message: "Using HYPD-managed bot" });
+      return;
+    }
+    setBotCheck(await verify("bot", { token: automation.botToken }));
+  }
+  async function checkSource() {
+    const token = isOfficial ? "" : automation.botToken;
+    setSrcCheck(await verify("chat", { token, useOfficial: isOfficial, chatId: automation.sourceChannelId }));
+  }
+  async function checkDestination() {
+    const token = isOfficial ? "" : automation.botToken;
+    const chatId = automation.destinationChannelId || automation.destinationChannelUsername;
+    const result = await verify("chat", { token, useOfficial: isOfficial, chatId });
+    setDestCheck(result);
+    if (result.ok && result.chatId && !automation.destinationChannelId) {
+      onChange({ ...automation, destinationChannelId: String(result.chatId) });
+    }
+  }
 
   return (
     <div className="rounded-xl bg-surface-card p-5">
@@ -110,12 +172,31 @@ function AutomationCard({ automation, index, onChange, onRemove }: {
       </div>
 
       <div className="mt-4 space-y-4">
-        <Field
-          label="Destination Channel"
-          value={automation.destinationChannelUsername}
-          placeholder="@your_channel"
-          onChange={(v) => onChange({ ...automation, destinationChannelUsername: v })}
-        />
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted">Destination Channel</span>
+            <button
+              type="button"
+              onClick={() => void checkDestination()}
+              className="text-[10px] font-bold uppercase text-primary hover:underline"
+            >
+              Verify
+            </button>
+          </div>
+          <input
+            value={automation.destinationChannelUsername}
+            onChange={(e) => onChange({ ...automation, destinationChannelUsername: e.target.value })}
+            placeholder="@your_channel or -100123..."
+            className="w-full rounded-lg bg-surface-high px-3 py-2.5 text-sm text-text outline-none placeholder:text-muted/50"
+          />
+          {destCheck ? (
+            <p className={`text-[11px] ${destCheck.ok ? "text-tertiary" : "text-primary"}`}>
+              {destCheck.ok
+                ? `✓ ${destCheck.type} · ${destCheck.title} (${destCheck.chatId})`
+                : `✗ ${destCheck.message}`}
+            </p>
+          ) : null}
+        </div>
 
         {/* Source mode */}
         <div className="space-y-1">
@@ -158,18 +239,40 @@ function AutomationCard({ automation, index, onChange, onRemove }: {
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field
-              label="Source Channel"
-              value={automation.sourceChannelId}
-              placeholder="@source_channel"
-              onChange={(v) => onChange({ ...automation, sourceChannelId: v, sourceChannelLabel: v })}
-            />
-            <Field
-              label="Bot Username"
-              value={automation.botUsername}
-              placeholder="@your_bot"
-              onChange={(v) => onChange({ ...automation, botUsername: v })}
-            />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted">Source Channel</span>
+                <button type="button" onClick={() => void checkSource()} className="text-[10px] font-bold uppercase text-primary hover:underline">Verify</button>
+              </div>
+              <input
+                value={automation.sourceChannelId}
+                onChange={(e) => onChange({ ...automation, sourceChannelId: e.target.value, sourceChannelLabel: e.target.value })}
+                placeholder="@source_channel or -100..."
+                className="w-full rounded-lg bg-surface-high px-3 py-2.5 text-sm text-text outline-none placeholder:text-muted/50"
+              />
+              {srcCheck ? (
+                <p className={`text-[11px] ${srcCheck.ok ? "text-tertiary" : "text-primary"}`}>
+                  {srcCheck.ok ? `✓ ${srcCheck.type} · ${srcCheck.title}` : `✗ ${srcCheck.message}`}
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted">Bot Username</span>
+                <button type="button" onClick={() => void checkBot()} className="text-[10px] font-bold uppercase text-primary hover:underline">Verify</button>
+              </div>
+              <input
+                value={automation.botUsername}
+                onChange={(e) => onChange({ ...automation, botUsername: e.target.value })}
+                placeholder="@your_bot"
+                className="w-full rounded-lg bg-surface-high px-3 py-2.5 text-sm text-text outline-none placeholder:text-muted/50"
+              />
+              {botCheck ? (
+                <p className={`text-[11px] ${botCheck.ok ? "text-tertiary" : "text-primary"}`}>
+                  {botCheck.ok ? `✓ @${botCheck.botUsername ?? ""}${botCheck.message ? ` · ${botCheck.message}` : ""}` : `✗ ${botCheck.message}`}
+                </p>
+              ) : null}
+            </div>
           </div>
         )}
 
@@ -342,6 +445,8 @@ export function ConnectGrid() {
   const [automations, setAutomations] = useState<TelegramAutomation[]>([]);
   const [officialBotConfigured, setOfficialBotConfigured] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [recentRuns, setRecentRuns] = useState<RunLogEntry[]>([]);
+  const [webhooks, setWebhooks] = useState<Record<string, WebhookRegistration> | null>(null);
 
   useEffect(() => {
     fetch("/api/automation/telegram", { cache: "no-store" })
@@ -355,6 +460,7 @@ export function ConnectGrid() {
         setAutomations(result.automations?.length ? result.automations : [createTelegramAutomation()]);
         setSavedAt(result.updatedAt ?? null);
         setOfficialBotConfigured(Boolean(result.officialBotConfigured));
+        setRecentRuns(result.recentRuns ?? []);
         setStatus("Ready");
         setIsReady(true);
       })
@@ -374,6 +480,7 @@ export function ConnectGrid() {
         setAutomations(result.automations ?? automations);
         setSavedAt(result.updatedAt ?? null);
         setOfficialBotConfigured(Boolean(result.officialBotConfigured));
+        setWebhooks(result.webhooks ?? null);
         setStatus("Saved");
       } else {
         setStatus(result.message ?? "Save failed.");
@@ -448,6 +555,45 @@ export function ConnectGrid() {
           onRemove={() => { if (automations.length > 1) setAutomations(automations.filter((item) => item.id !== a.id)); }}
         />
       ))}
+
+      {/* Webhook registration status (after save) */}
+      {webhooks && Object.keys(webhooks).length > 0 ? (
+        <div className="rounded-xl bg-surface-card p-4">
+          <h3 className="mb-2 text-sm font-bold text-text">Webhook Status</h3>
+          <ul className="space-y-1 text-xs">
+            {Object.entries(webhooks).map(([token, info]) => (
+              <li key={token} className={`${info.status === "registered" ? "text-tertiary" : info.status === "error" ? "text-primary" : "text-muted"}`}>
+                <span className="font-mono">{token}</span>{" · "}
+                {info.status === "registered" ? `registered → ${info.url}` : info.status === "skipped" ? `skipped · ${info.reason}` : `error · ${info.reason}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {/* Run log */}
+      {recentRuns.length > 0 ? (
+        <div className="rounded-xl bg-surface-card p-4">
+          <h3 className="mb-3 text-sm font-bold text-text">Recent Runs</h3>
+          <div className="space-y-2">
+            {recentRuns.slice(0, 20).map((r, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      r.status === "delivered" ? "bg-tertiary" : r.status === "skipped" ? "bg-muted" : "bg-primary"
+                    }`}
+                  />
+                  <span className="font-mono text-muted">{new Date(r.at).toLocaleString()}</span>
+                  <span className="text-text">{r.status}</span>
+                  {r.reason ? <span className="text-muted">· {r.reason}</span> : null}
+                </div>
+                <span className="text-muted/60">msg {r.sourceMessageId ?? "—"} → {r.destMessageId ?? "—"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
