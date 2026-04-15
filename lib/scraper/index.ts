@@ -39,12 +39,30 @@ export function clearScraperMemCache() {
   memCache = null;
 }
 
-export async function scrapeAllMarketplaces(): Promise<{
+export async function scrapeAllMarketplaces(opts: { force?: boolean } = {}): Promise<{
   deals: InternetDeal[];
   sources: string[];
   scrapedAt: string;
 }> {
   const now = Date.now();
+
+  // Force mode: wait for the scrape to finish so callers (like /api/refresh)
+  // can show real counts instead of "No scraped data yet". Still bounded by
+  // Nova concurrency + per-marketplace timeouts.
+  if (opts.force) {
+    clearScraperMemCache();
+    await refreshAllInBackground();
+    // After the scrape, the file cache holds fresh per-marketplace data.
+    const fileCached = await getAllCachedDeals();
+    const result = {
+      deals: fileCached.deals,
+      sources: fileCached.sources.length ? fileCached.sources : ["Forced scrape"],
+      scrapedAt: fileCached.updatedAt || new Date().toISOString(),
+      fetchedAt: now,
+    };
+    memCache = result;
+    return result;
+  }
 
   // Layer 1: In-memory cache
   if (memCache && now - memCache.fetchedAt < MEM_CACHE_MS) {

@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
 import { fetchTelegramDeals } from "@/lib/integrations/telegram";
 import { scrapeMarketplaceDeals } from "@/lib/integrations/marketplace-scraper";
 import { getDealHistorySummary } from "@/lib/runtime/deal-history";
@@ -18,7 +23,10 @@ export async function POST() {
   // Refresh from all sources: Telegram + marketplace scraper
   const [telegram, scraped] = await Promise.all([
     fetchTelegramDeals(true),
-    scrapeMarketplaceDeals().catch(() => ({ deals: [], sources: [], scrapedAt: new Date().toISOString() }))
+    // force: wait for Nova to actually finish scraping so this response
+     // reports real counts instead of "0 from marketplaces" while a background
+     // job is still crawling.
+     scrapeMarketplaceDeals({ force: true }).catch(() => ({ deals: [], sources: [], scrapedAt: new Date().toISOString() }))
   ]);
 
   // Bust the per-creator converted-deals cache so the next /api/deals GET

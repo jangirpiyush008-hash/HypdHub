@@ -8,10 +8,10 @@
 import { InternetDeal } from "@/lib/types";
 import { scrapeAllMarketplaces } from "@/lib/scraper/index";
 
-export async function scrapeMarketplaceDeals(): Promise<{
+export async function scrapeMarketplaceDeals(opts: { force?: boolean } = {}): Promise<{
   deals: InternetDeal[];
   sources: string[];
   scrapedAt: string;
 }> {
-  return scrapeAllMarketplaces();
+  return scrapeAllMarketplaces(opts);
 }
