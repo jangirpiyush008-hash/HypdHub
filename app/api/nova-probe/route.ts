@@ -48,16 +48,37 @@ export async function GET(request: NextRequest) {
 
   try {
     const res = await fetchFn(url, { timeoutMs: 40000, settleMs: 1200 });
-    return NextResponse.json({
+    const full = params.get("full") === "1";
+    const diag = params.get("diag") === "1";
+    const html = res.text;
+    const body: Record<string, unknown> = {
       ok: res.ok,
       stage: "fetch",
       status: res.status,
       finalUrl: res.finalUrl,
-      textLength: res.text.length,
-      textHead: res.text.slice(0, 400),
+      textLength: html.length,
+      textHead: html.slice(0, 400),
       contentType: res.headers["content-type"] ?? null,
       elapsedMs: Date.now() - started,
-    });
+    };
+    if (diag) {
+      const nextDataMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]{0,3000})/i);
+      body.diag = {
+        hasNextData: /__NEXT_DATA__/.test(html),
+        hasRupee: /₹/.test(html),
+        hasRupeeEntity: /&#8377;|&#x20B9;/i.test(html),
+        priceMatches: (html.match(/₹\s*[0-9][0-9,]{1,7}/g) ?? []).slice(0, 5),
+        imgHostsSample: Array.from(
+          new Set(
+            (html.match(/https?:\/\/([a-z0-9.-]+)\/[^"' ]+\.(?:jpg|jpeg|webp|png)/gi) ?? [])
+              .map((u) => new URL(u).host)
+          )
+        ).slice(0, 10),
+        nextDataHead: nextDataMatch ? nextDataMatch[1].slice(0, 800) : null,
+      };
+    }
+    if (full) body.text = html;
+    return NextResponse.json(body);
   } catch (e) {
     return NextResponse.json({
       ok: false,
