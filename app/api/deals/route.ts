@@ -6,8 +6,9 @@ import { getDealHistorySummary } from "@/lib/runtime/deal-history";
 import { ensureAutomaticRefresh, getRefreshStatus } from "@/lib/runtime/refresh-state";
 import { InternetDeal } from "@/lib/types";
 import { generateHypdConversion } from "@/lib/hypd-links";
-import { fetchCurrentHypdCreator } from "@/lib/hypd-server";
+import { fetchCurrentHypdCreator, getStoredHypdCookies } from "@/lib/hypd-server";
 import { fetchDealsFromDb } from "@/lib/scraper/supabase-deals";
+import { convertDealsForCreator } from "@/lib/deals/creator-links";
 
 const supportedMarketplaces: InternetDeal["marketplace"][] = [
   "Myntra", "Meesho", "Flipkart", "Shopsy", "Ajio", "Nykaa", "HYPD"
@@ -149,6 +150,7 @@ export async function GET(request: NextRequest) {
 
   const creator = await fetchCurrentHypdCreator().catch(() => null);
   const creatorUsername = creator?.hypdUsername ?? "hypdhub";
+  const creatorCookies = creator ? await getStoredHypdCookies() : [];
 
   const creatorCacheKey = `${creatorUsername}:${marketplace ?? "All"}:${minPrice}:${maxPrice}`;
   const cached = convertedCache.get(creatorCacheKey);
@@ -182,7 +184,16 @@ export async function GET(request: NextRequest) {
 
   const cleaned = cleanDeals(rawDeals);
   const withCategory = cleaned.map(ensureCategoryUrl);
-  const allDeals = convertDealLinksToHypd(withCategory, creatorUsername);
+
+  // If logged in, convert every deal link through HYPD's deeplink API so each
+  // link carries THIS creator's attribution (real af_siteid, real clickid,
+  // real product_id) instead of the hardcoded generic siteid the sync
+  // generator falls back to. Per-creator cache + bounded concurrency keeps
+  // this fast on repeat loads.
+  const allDeals =
+    creator && creatorCookies.length > 0
+      ? await convertDealsForCreator(withCategory, creator, creatorCookies)
+      : convertDealLinksToHypd(withCategory, creatorUsername);
 
   const filteredDeals = allDeals.filter((deal) => {
     const marketplaceMatch = !marketplace || marketplace === "All" || deal.marketplace === marketplace;

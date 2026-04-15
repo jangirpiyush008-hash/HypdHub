@@ -334,143 +334,200 @@ export async function scrapeFlipkart(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 // MEESHO
 // ═══════════════════════════════════════════════════════════════════
-// Meesho has aggressive bot protection. We try three angles:
-//   1. Deep-nav to /deals and parse embedded Next.js data (__NEXT_DATA__ or
-//      window.__INITIAL_STATE__) — works when Meesho returns server-rendered
-//      HTML to our browser-like session.
-//   2. Parse any JSON-LD product blocks on deals / lowest-price pages.
-//   3. Image + price regex on <img> tags inside their product grid (last
-//      resort, used when JS hydration has stripped structured data).
+// Meesho has aggressive bot protection. Strategy:
+//   1. Try the public product-feed API (`/api/1.0/products/feed/...`) used
+//      by the web app — returns structured catalog data with images + mrp.
+//   2. HTML scrape `/deals`, `/lowest-price-products`, `/offers` and extract
+//      products from __NEXT_DATA__ ONLY at the well-known shapes
+//      (initialState.catalogs / pageProps.catalogs), avoiding the loose
+//      tree-walk that picked up promo cards with 1 match.
+//   3. Regex fallback anchored on images.meesho.com <img> + nearby price.
+// Strategies accumulate: we return the UNION of whatever each finds, so
+// one weak strategy can't short-circuit a stronger one.
 
-const MEESHO_IMG_HOST = /(?:images\.meesho\.com|imghost\.meesho\.com|mscassets\.meesho\.com|images\.mimg\.pro)/;
+const MEESHO_IMG_HOSTS = "images\\.meesho\\.com|imghost\\.meesho\\.com|mscassets\\.meesho\\.com|images\\.mimg\\.pro|cdn\\.shopify\\.com\\/s\\/files";
 
+type MeeshoCatalog = {
+  name?: string;
+  product_name?: string;
+  min_product_price?: number;
+  mrp?: number;
+  original_price?: number;
+  price?: number;
+  id?: number | string;
+  product_id?: number | string;
+  sku_id?: number | string;
+  image?: string;
+  product_image?: string;
+  images?: Array<{ url?: string } | string>;
+  slug?: string;
+};
+
+function meeshoDeal(cat: MeeshoCatalog): InternetDeal | null {
+  const title = cat.name || cat.product_name;
+  const price = Number(cat.min_product_price ?? cat.price ?? 0);
+  const mrp = Number(cat.mrp ?? cat.original_price ?? 0) || undefined;
+  if (!title || typeof title !== "string" || title.length < 4) return null;
+  if (!price || price <= 0 || price > 100000) return null;
+
+  const firstImg = cat.images?.[0];
+  const img =
+    cat.image ||
+    cat.product_image ||
+    (typeof firstImg === "string" ? firstImg : firstImg?.url) ||
+    undefined;
+
+  const id = cat.id ?? cat.product_id ?? cat.sku_id;
+  const url = id
+    ? `https://www.meesho.com/${cat.slug ?? "product"}/p/${Number(id).toString(36).slice(-6)}`
+    : "https://www.meesho.com/deals";
+
+  return makeDeal({
+    title,
+    marketplace: "Meesho",
+    currentPrice: price,
+    originalPrice: mrp && mrp > price ? mrp : undefined,
+    url,
+    imageUrl: img,
+  });
+}
+
+/** Strategy 1: Meesho's internal product-feed endpoints. */
+async function meeshoApiStrategy(): Promise<InternetDeal[]> {
+  const endpoints = [
+    "https://www.meesho.com/api/1.0/products/feed/recommendations?limit=24&offset=0&category_id=56",
+    "https://www.meesho.com/api/1.0/products/feed/lowest-price-products?limit=24&offset=0",
+    "https://www.meesho.com/api/1.0/products/feed/deals?limit=24&offset=0",
+  ];
+  const out: InternetDeal[] = [];
+  for (const ep of endpoints) {
+    try {
+      const res = await humanNavigate("https://www.meesho.com/", ep, {
+        acceptJson: true,
+        extraHeaders: {
+          "x-app-client": "web",
+          "x-app-version": "0.1",
+          accept: "application/json",
+        },
+      });
+      if (!res.ok) continue;
+      const data = JSON.parse(res.text);
+      const catalogs = (data?.catalogs ?? data?.products ?? data?.data?.catalogs ?? []) as MeeshoCatalog[];
+      for (const cat of catalogs) {
+        const d = meeshoDeal(cat);
+        if (d) out.push(d);
+        if (out.length >= 16) break;
+      }
+      if (out.length >= 6) break; // enough — stop burning requests
+    } catch { /* next endpoint */ }
+  }
+  return out;
+}
+
+/** Strategy 2: pull catalogs out of __NEXT_DATA__ at known shapes. */
 function parseMeeshoNextData(html: string): InternetDeal[] {
-  const deals: InternetDeal[] = [];
-  // __NEXT_DATA__ payload
   const m = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
-  if (!m) return deals;
+  if (!m) return [];
   try {
     const data = JSON.parse(m[1]);
-    // Meesho stashes product arrays in various places depending on page.
-    // Walk the tree and collect anything that looks like a product.
-    const stack: unknown[] = [data];
-    const seen = new Set<string>();
-    while (stack.length && deals.length < 20) {
-      const node = stack.pop();
-      if (!node || typeof node !== "object") continue;
-      const rec = node as Record<string, unknown>;
-      // Product shape heuristic
-      const name = (rec.name ?? rec.product_name ?? rec.title) as string | undefined;
-      const price = Number(rec.price ?? rec.discounted_price ?? rec.min_price ?? 0);
-      const mrp = Number(rec.original_price ?? rec.mrp ?? 0) || undefined;
-      const img = (rec.image ?? rec.product_image ?? (Array.isArray(rec.images) ? (rec.images[0] as Record<string, unknown>)?.url : undefined)) as string | undefined;
-      const prodId = (rec.product_id ?? rec.id ?? rec.pid) as string | number | undefined;
-      if (name && price > 0 && price < 100000 && typeof name === "string" && name.length > 4) {
-        const url = prodId ? `https://www.meesho.com/product/${prodId}` : "https://www.meesho.com/deals";
-        const key = `${name}::${price}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          deals.push(makeDeal({
-            title: name,
-            marketplace: "Meesho",
-            currentPrice: price,
-            originalPrice: mrp && mrp > price ? mrp : undefined,
-            url,
-            imageUrl: typeof img === "string" ? img : undefined,
-          }));
-        }
+    const paths: MeeshoCatalog[][] = [
+      data?.props?.pageProps?.initialState?.catalogs?.catalogs,
+      data?.props?.pageProps?.catalogs,
+      data?.props?.pageProps?.initialData?.catalogs,
+      data?.props?.pageProps?.initialState?.products?.products,
+      data?.props?.pageProps?.recommendedCatalogs,
+    ].filter(Array.isArray) as MeeshoCatalog[][];
+
+    const out: InternetDeal[] = [];
+    for (const list of paths) {
+      for (const cat of list) {
+        const d = meeshoDeal(cat);
+        if (d) out.push(d);
+        if (out.length >= 16) break;
       }
-      for (const v of Object.values(rec)) {
-        if (v && typeof v === "object") stack.push(v);
-      }
+      if (out.length >= 16) break;
     }
+    return out;
   } catch {
-    /* ignore malformed */
+    return [];
   }
-  return deals;
 }
 
-function parseMeeshoJsonLd(html: string): InternetDeal[] {
-  const deals: InternetDeal[] = [];
-  const blocks = Array.from(html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi));
-  for (const match of blocks) {
-    try {
-      const data = JSON.parse(match[1]);
-      const items = Array.isArray(data) ? data : data?.itemListElement ?? [data];
-      for (const wrap of items) {
-        const item = wrap?.item ?? wrap;
-        const name = item?.name as string | undefined;
-        const price = parseFloat(item?.offers?.price ?? item?.offers?.lowPrice ?? "0");
-        const image = item?.image;
-        const itemUrl = item?.url as string | undefined;
-        if (name && price > 0) {
-          deals.push(makeDeal({
-            title: name,
-            marketplace: "Meesho",
-            currentPrice: price,
-            url: itemUrl?.startsWith("http") ? itemUrl : "https://www.meesho.com/deals",
-            imageUrl: typeof image === "string" ? image : Array.isArray(image) ? image[0] : undefined,
-          }));
-        }
-      }
-    } catch { /* skip */ }
-  }
-  return deals;
-}
-
+/** Strategy 3: image-anchored regex on listing HTML. */
 function parseMeeshoImagePrice(html: string): InternetDeal[] {
   const deals: InternetDeal[] = [];
   const imgPattern = new RegExp(
-    `<img[^>]+src=["'](https:\\/\\/(?:${MEESHO_IMG_HOST.source.slice(1, -1)})[^"']+)["'][^>]*(?:alt|title)=["']([^"']{5,120})["']`,
+    `<img[^>]+src=["'](https:\\/\\/(?:${MEESHO_IMG_HOSTS})[^"']+)["'][^>]*(?:alt|title)=["']([^"']{5,120})["']`,
     "gi"
   );
+  const seen = new Set<string>();
   for (const m of html.matchAll(imgPattern)) {
     const imageUrl = m[1];
     const title = m[2];
     const idx = m.index ?? 0;
     const nearby = html.slice(idx, idx + 1500);
     const priceMatch = nearby.match(/₹\s*([0-9][0-9,]{1,7})/);
-    if (priceMatch) {
-      const price = parseFloat(priceMatch[1].replace(/,/g, ""));
-      if (price > 0 && price < 50000) {
-        deals.push(makeDeal({
-          title,
-          marketplace: "Meesho",
-          currentPrice: price,
-          url: "https://www.meesho.com/deals",
-          imageUrl,
-        }));
-      }
-    }
-    if (deals.length >= 12) break;
+    if (!priceMatch) continue;
+    const price = parseFloat(priceMatch[1].replace(/,/g, ""));
+    if (!(price > 0 && price < 50000)) continue;
+    const key = title.toLowerCase().slice(0, 40);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deals.push(makeDeal({
+      title,
+      marketplace: "Meesho",
+      currentPrice: price,
+      url: "https://www.meesho.com/deals",
+      imageUrl,
+    }));
+    if (deals.length >= 16) break;
   }
   return deals;
 }
 
-async function meeshoStrategy(path: string): Promise<InternetDeal[]> {
+async function meeshoHtmlStrategy(path: string): Promise<InternetDeal[]> {
   const res = await humanDeepNavigate([
     "https://www.meesho.com/",
     `https://www.meesho.com${path}`,
   ]);
   if (!res.ok) return [];
-  const html = res.text;
-  const fromNext = parseMeeshoNextData(html);
-  if (fromNext.length > 0) return fromNext.slice(0, 12);
-  const fromLd = parseMeeshoJsonLd(html);
-  if (fromLd.length > 0) return fromLd.slice(0, 12);
-  return parseMeeshoImagePrice(html).slice(0, 12);
+  const fromNext = parseMeeshoNextData(res.text);
+  if (fromNext.length >= 4) return fromNext;
+  const fromImg = parseMeeshoImagePrice(res.text);
+  // Merge next-data + image results, dedupe by title.
+  const merged = [...fromNext];
+  const seen = new Set(merged.map((d) => d.title.toLowerCase().slice(0, 40)));
+  for (const d of fromImg) {
+    const k = d.title.toLowerCase().slice(0, 40);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    merged.push(d);
+  }
+  return merged;
 }
 
 export async function scrapeMeesho(): Promise<InternetDeal[]> {
-  const result = await tryStrategies([
-    { name: "meesho-deals", fn: () => meeshoStrategy("/deals").then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
-    { name: "meesho-lowest", fn: () => meeshoStrategy("/lowest-price-products").then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
-    { name: "meesho-offers", fn: () => meeshoStrategy("/offers").then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
-  ]);
-  if (result) {
-    try { return JSON.parse(result.response.text); } catch { return []; }
-  }
-  return [];
+  // Accumulate across strategies — earlier short-circuit was limiting us to
+  // whichever single strategy matched first.
+  const bag: InternetDeal[] = [];
+  const seen = new Set<string>();
+  const push = (list: InternetDeal[]) => {
+    for (const d of list) {
+      const k = d.title.toLowerCase().slice(0, 40);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      bag.push(d);
+      if (bag.length >= 16) return true;
+    }
+    return false;
+  };
+
+  try { if (push(await meeshoApiStrategy())) return bag; } catch { /* next */ }
+  try { if (push(await meeshoHtmlStrategy("/deals"))) return bag; } catch { /* next */ }
+  try { if (push(await meeshoHtmlStrategy("/lowest-price-products"))) return bag; } catch { /* next */ }
+  try { if (push(await meeshoHtmlStrategy("/offers"))) return bag; } catch { /* next */ }
+
+  return bag;
 }
 
 
