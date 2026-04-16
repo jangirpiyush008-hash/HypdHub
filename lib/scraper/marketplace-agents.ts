@@ -530,10 +530,24 @@ function parseImagePriceGeneric(
     if (!srcM) continue;
     const src = srcM[1];
     if (!hostRe.test(src)) continue;
-    const altM = attrs.match(/\b(?:alt|title)=["']([^"']{5,160})["']/i);
-    if (!altM) continue;
-    const title = altM[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
-    if (title.length < 5) continue;
+    const altM = attrs.match(/\b(?:alt|title)=["']([^"']{0,160})["']/i);
+    const rawAlt = (altM?.[1] ?? "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+    const idxForTitle = m.index ?? 0;
+    // If alt is empty, purely numeric, or too short, hunt for a better title
+    // nearby: parent <a aria-label="...">, <h2>/<h3>, or callout-text div.
+    let title = rawAlt;
+    if (!title || /^\d+$/.test(title) || title.length < 5) {
+      const pre = html.slice(Math.max(0, idxForTitle - 800), idxForTitle);
+      const post = html.slice(idxForTitle, idxForTitle + 800);
+      const ariaM = pre.match(/aria-label=["']([^"']{6,160})["'][^>]*>\s*(?:<[^>]+>\s*)*$/);
+      const calloutM = post.match(/class=["'][^"']*callout-text[^"']*["'][^>]*>([^<]{5,120})</i);
+      const headingM = post.match(/<h[1-6][^>]*>([^<]{5,120})<\/h[1-6]>/i);
+      const cand =
+        (ariaM?.[1] ?? calloutM?.[1] ?? headingM?.[1] ?? "")
+          .replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+      if (cand && cand.length >= 5) title = cand;
+    }
+    if (!title || title.length < 5) continue;
     const idx = m.index ?? 0;
     // Look both before and after the img tag — price can come on either side.
     const nearby = html.slice(Math.max(0, idx - 800), idx + 2000);
@@ -684,16 +698,17 @@ function parseAjioJson(text: string): InternetDeal[] {
 }
 
 async function ajioStrategy4(): Promise<InternetDeal[]> {
-  // Home page HTML — /sale returns 404, category API blocked.
-  const res = await novaFetch("https://www.ajio.com/", {
+  // /shop/sale returns 200 + 927KB with prices. /sale is 404; category API blocked.
+  const res = await novaFetch("https://www.ajio.com/shop/sale", {
     waitForSelector: "img[src*='ajio']",
     settleMs: 1500,
   });
   if (!res.ok) return [];
   return parseImagePriceGeneric(res.text, {
     marketplace: "Ajio",
-    imgHostPattern: "assets\\.ajio\\.com|images\\.ajio\\.com|cdn\\.ajio\\.com",
-    fallbackUrl: "https://www.ajio.com/",
+    imgHostPattern:
+      "assets-jiocdn\\.ajio\\.com|assets\\.ajio\\.com|ajio-cdn\\.gumlet\\.io|images\\.ajio\\.com|cdn\\.ajio\\.com|assets-uat\\.ajio\\.ril\\.com",
+    fallbackUrl: "https://www.ajio.com/shop/sale",
   });
 }
 
