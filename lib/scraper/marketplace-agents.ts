@@ -533,10 +533,17 @@ function parseImagePriceGeneric(
     const altM = attrs.match(/\b(?:alt|title)=["']([^"']{0,160})["']/i);
     const rawAlt = (altM?.[1] ?? "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
     const idxForTitle = m.index ?? 0;
-    // If alt is empty, purely numeric, or too short, hunt for a better title
+    // Generic non-descriptive alts that marketplaces sprinkle on banners.
+    const GENERIC_ALT = /^(?:header|footer|banner|image|img|logo|icon|photo|picture|thumbnail|product|deal|offer|sale|shop|card|tile|hero|main|default|placeholder)$/i;
+    // If alt is empty/numeric/too short/generic, hunt for a better title
     // nearby: parent <a aria-label="...">, <h2>/<h3>, or callout-text div.
     let title = rawAlt;
-    if (!title || /^\d+$/.test(title) || title.length < 5) {
+    if (
+      !title ||
+      /^\d+$/.test(title) ||
+      title.length < 5 ||
+      GENERIC_ALT.test(title)
+    ) {
       const pre = html.slice(Math.max(0, idxForTitle - 800), idxForTitle);
       const post = html.slice(idxForTitle, idxForTitle + 800);
       const ariaM = pre.match(/aria-label=["']([^"']{6,160})["'][^>]*>\s*(?:<[^>]+>\s*)*$/);
