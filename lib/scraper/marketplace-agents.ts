@@ -578,6 +578,10 @@ function parseImagePriceGeneric(
       if (cand && cand.length >= 5) title = cand;
     }
     if (!title || title.length < 5) continue;
+    // Skip if final title is still purely numeric (banner/creative IDs).
+    if (/^\d+$/.test(title)) continue;
+    // Skip if title is <= 5 chars and looks like an ID (digits + maybe 1 letter).
+    if (title.length <= 8 && /^[A-Z0-9_-]+$/.test(title) && /\d{3,}/.test(title)) continue;
     const idx = m.index ?? 0;
     // Look both before and after the img tag — price can come on either side.
     const nearby = html.slice(Math.max(0, idx - 800), idx + 2000);
@@ -731,13 +735,27 @@ function parseAjioJson(text: string): InternetDeal[] {
 }
 
 async function ajioStrategy4(): Promise<InternetDeal[]> {
-  // /shop/sale returns 200 + 927KB with prices. /sale is 404; category API blocked.
+  // Ajio is an SPA: product tiles come via XHR, not SSR. Navigate the page
+  // with Nova mobile and snatch the category-API response directly.
   const res = await novaFetch("https://www.ajio.com/shop/sale", {
-    waitForSelector: "img[src*='ajio']",
-    settleMs: 1500,
+    mobile: true,
+    deepScroll: true,
+    settleMs: 3000,
+    timeoutMs: 30000,
+    waitForXhr: /\/api\/(?:category|search|products|listing)/i,
   });
-  if (!res.ok) return [];
-  return parseImagePriceGeneric(res.text, {
+  if (res.ok) {
+    const ajioDeals = parseAjioJson(res.text);
+    if (ajioDeals.length > 0) return ajioDeals;
+  }
+  // Fallback: HTML generic parser (works if filter-chip prices count).
+  const html = await novaFetch("https://www.ajio.com/shop/sale", {
+    mobile: true,
+    deepScroll: true,
+    settleMs: 2500,
+  });
+  if (!html.ok) return [];
+  return parseImagePriceGeneric(html.text, {
     marketplace: "Ajio",
     imgHostPattern:
       "assets-jiocdn\\.ajio\\.com|assets\\.ajio\\.com|ajio-cdn\\.gumlet\\.io|images\\.ajio\\.com|cdn\\.ajio\\.com|assets-uat\\.ajio\\.ril\\.com",
@@ -877,16 +895,77 @@ export async function scrapeNykaa(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function shopsyStrategy1(): Promise<InternetDeal[]> {
-  // Mobile + deep scroll to render lazy-loaded product grid. /top-offers-store
-  // was confirmed by probe to return 109KB with rukminim imgs.
+  // Try XHR capture first — Shopsy/Flipkart page data comes from
+  // /api/X/page/fetch. Falls back to HTML parse if XHR doesn't surface.
+  const xhr = await novaFetch("https://www.shopsy.in/top-offers-store", {
+    mobile: true,
+    deepScroll: true,
+    settleMs: 3000,
+    timeoutMs: 30000,
+    waitForXhr: /\/api\/\d+\/page\/fetch|\/api\/product|\/api\/listing/i,
+  });
+  if (xhr.ok) {
+    try {
+      const json = JSON.parse(xhr.text);
+      const deals = extractFlipkartProducts(json, "Shopsy", "https://www.shopsy.in/top-offers-store");
+      if (deals.length > 0) return deals;
+    } catch { /* fall through */ }
+  }
   const res = await novaFetch("https://www.shopsy.in/top-offers-store", {
     waitForSelector: "img[src*='rukminim']",
-    settleMs: 3000,
+    settleMs: 3500,
     mobile: true,
     deepScroll: true,
   });
   if (res.ok) return parseShopsyHtml(res.text);
   return [];
+}
+
+/** Walk Flipkart/Shopsy API response tree for product records. */
+function extractFlipkartProducts(
+  root: unknown,
+  marketplace: "Flipkart" | "Shopsy",
+  pageUrl: string
+): InternetDeal[] {
+  const out: InternetDeal[] = [];
+  const seen = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (out.length >= 16 || node === null || typeof node !== "object") return;
+    const obj = node as Record<string, unknown>;
+    const info = (obj.productInfo as Record<string, unknown>)?.value ?? obj;
+    const infoObj = info as Record<string, unknown>;
+    const title = (infoObj.title as string) ?? (infoObj.productName as string) ?? "";
+    const pricing = infoObj.pricing as Record<string, unknown> | undefined;
+    const price =
+      ((pricing?.finalPrice as Record<string, unknown>)?.value as number) ??
+      (infoObj.price as number) ??
+      0;
+    const mrp = ((pricing?.mrp as Record<string, unknown>)?.value as number) ?? (infoObj.mrp as number);
+    const image =
+      ((infoObj.media as Array<Record<string, unknown>> | undefined)?.[0]?.url as string) ??
+      (infoObj.imageUrl as string) ?? "";
+    const pUrl = (infoObj.smartUrl as string) ?? (infoObj.baseUrl as string) ?? pageUrl;
+    if (typeof title === "string" && title.length > 4 && typeof price === "number" && price > 0) {
+      const k = title.toLowerCase().slice(0, 40);
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(
+          makeDeal({
+            title,
+            marketplace,
+            currentPrice: price,
+            originalPrice: mrp && mrp > price ? mrp : undefined,
+            url: pUrl.startsWith("http") ? pUrl : `https://www.${marketplace.toLowerCase()}.${marketplace === "Shopsy" ? "in" : "com"}${pUrl}`,
+            imageUrl: image && image.startsWith("http") ? image : undefined,
+          })
+        );
+      }
+    }
+    if (Array.isArray(node)) for (const v of node) walk(v);
+    else for (const v of Object.values(obj)) walk(v);
+  };
+  walk(root);
+  return out;
 }
 
 async function shopsyStrategy2(): Promise<InternetDeal[]> {

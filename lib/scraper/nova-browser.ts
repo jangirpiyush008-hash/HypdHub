@@ -62,7 +62,16 @@ export type NovaFetchOptions = {
    * product tiles. Default true; set false for JSON endpoints.
    */
   deepScroll?: boolean;
+  /**
+   * If set, capture the first XHR/fetch response whose URL matches this
+   * regex and return its body as the result text. Used to scrape SPAs that
+   * don't SSR product data (Ajio, Shopsy) — navigate to the page, let the
+   * app fire its product-list XHR, snatch that JSON.
+   */
+  waitForXhr?: RegExp;
 };
+
+export type NovaXhrResult = NovaFetchResult & { xhrUrl?: string };
 
 const DEFAULT_TIMEOUT = 25_000;
 const MAX_CONCURRENCY = 3;
@@ -243,6 +252,20 @@ export async function novaFetch(url: string, opts: NovaFetchOptions = {}): Promi
     context = await createContext(browser, opts.referer, { mobile: useMobile });
     page = await context.newPage();
 
+    // If the caller wants an XHR body, hook before navigation so we don't
+    // miss early requests.
+    let xhrPromise: Promise<{ url: string; body: string } | null> | null = null;
+    if (opts.waitForXhr) {
+      const pat = opts.waitForXhr;
+      xhrPromise = page
+        .waitForResponse(
+          (r) => pat.test(r.url()) && r.status() >= 200 && r.status() < 400,
+          { timeout: Math.max(5000, timeoutMs - 2000) }
+        )
+        .then(async (r) => ({ url: r.url(), body: await r.text() }))
+        .catch(() => null);
+    }
+
     const response = await page.goto(url, {
       waitUntil: "domcontentloaded",
       timeout: timeoutMs,
@@ -269,6 +292,22 @@ export async function novaFetch(url: string, opts: NovaFetchOptions = {}): Promi
 
     const status = response?.status() ?? 0;
     const finalUrl = page.url();
+
+    // If caller asked for an XHR, resolve it now (we've given scroll + settle
+    // time for the app to fire its requests).
+    if (xhrPromise) {
+      const xhr = await xhrPromise;
+      if (xhr) {
+        return {
+          ok: xhr.body.length > 50,
+          status: 200,
+          text: xhr.body,
+          headers: {},
+          finalUrl: xhr.url,
+        };
+      }
+    }
+
     const text = opts.acceptJson ? await extractJson(page) : await page.content();
     const headers = (response?.headers() ?? {}) as Record<string, string>;
 
