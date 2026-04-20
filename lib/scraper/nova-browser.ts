@@ -51,6 +51,17 @@ export type NovaFetchOptions = {
   timeoutMs?: number;
   /** If true, intercept XHR/fetch response for a JSON endpoint instead of HTML. */
   acceptJson?: boolean;
+  /**
+   * Force the Android mobile profile (touch viewport, real phone UA).
+   * Mobile pages often have lighter bot checks and render prices in SSR
+   * where desktop lazy-loads via XHR. On by default for marketplaces.
+   */
+  mobile?: boolean;
+  /**
+   * Scroll the page deeply (multiple viewport heights) to trigger lazy-loaded
+   * product tiles. Default true; set false for JSON endpoints.
+   */
+  deepScroll?: boolean;
 };
 
 const DEFAULT_TIMEOUT = 25_000;
@@ -138,12 +149,22 @@ const CONTEXT_PROFILES = [
   },
 ];
 
-function pickProfile(): typeof CONTEXT_PROFILES[number] {
-  return CONTEXT_PROFILES[Math.floor(Math.random() * CONTEXT_PROFILES.length)];
+function pickProfile(mobile?: boolean): typeof CONTEXT_PROFILES[number] {
+  if (mobile) return CONTEXT_PROFILES[2]; // Android Galaxy S24
+  // Default: 50% Android, 25% Windows, 25% Mac — phone-heavy to look like
+  // real Indian shopper traffic (70% mobile per Meesho/Flipkart telemetry).
+  const r = Math.random();
+  if (r < 0.5) return CONTEXT_PROFILES[2];
+  if (r < 0.75) return CONTEXT_PROFILES[0];
+  return CONTEXT_PROFILES[1];
 }
 
-async function createContext(browser: Browser, referer?: string): Promise<BrowserContext> {
-  const profile = pickProfile();
+async function createContext(
+  browser: Browser,
+  referer?: string,
+  opts: { mobile?: boolean } = {}
+): Promise<BrowserContext> {
+  const profile = pickProfile(opts.mobile);
   const ctx = await browser.newContext({
     userAgent: profile.userAgent,
     viewport: profile.viewport,
@@ -176,17 +197,29 @@ async function createContext(browser: Browser, referer?: string): Promise<Browse
   return ctx;
 }
 
-async function humanScroll(page: Page): Promise<void> {
-  // Small, realistic scroll pattern to trigger lazy-loaded product tiles.
+async function humanScroll(page: Page, deep = false): Promise<void> {
+  // Scroll pattern that mimics a human thumb-flicking on a phone.
+  // Deep mode goes to the bottom in multiple passes so lazy-loaded tiles get
+  // triggered (React/Intersection-Observer product grids only render when
+  // tiles enter viewport; without this scroll the DOM stays empty).
   try {
-    await page.evaluate(async () => {
-      const heights = [300, 700, 1200, 1800, 2400];
-      for (const h of heights) {
-        window.scrollTo({ top: h, behavior: "instant" });
-        await new Promise((r) => setTimeout(r, 200 + Math.random() * 200));
+    await page.evaluate(async (isDeep) => {
+      const total = document.documentElement.scrollHeight;
+      const vh = window.innerHeight;
+      const step = Math.max(400, vh * 0.8);
+      const stops = isDeep ? Math.min(20, Math.ceil(total / step)) : 5;
+      for (let i = 1; i <= stops; i += 1) {
+        const y = Math.min(total, step * i);
+        window.scrollTo({ top: y, behavior: "instant" });
+        // Variable dwell — simulates reading. Lazy-load tiles typically
+        // fire their IntersectionObserver within 300-600ms.
+        await new Promise((r) => setTimeout(r, 280 + Math.random() * 380));
       }
+      // Back to top so client-side virtualized grids (Meesho) keep the
+      // earlier tiles mounted instead of recycling them out.
       window.scrollTo({ top: 0, behavior: "instant" });
-    });
+      await new Promise((r) => setTimeout(r, 300));
+    }, deep);
   } catch {
     /* ignore */
   }
@@ -204,7 +237,10 @@ export async function novaFetch(url: string, opts: NovaFetchOptions = {}): Promi
 
   try {
     const browser = await getBrowser();
-    context = await createContext(browser, opts.referer);
+    // Default: mobile profile on. Marketplaces serve lighter, less bot-protected
+    // HTML to Android Chrome because of their huge mobile user share.
+    const useMobile = opts.mobile !== false;
+    context = await createContext(browser, opts.referer, { mobile: useMobile });
     page = await context.newPage();
 
     const response = await page.goto(url, {
@@ -220,12 +256,16 @@ export async function novaFetch(url: string, opts: NovaFetchOptions = {}): Promi
     }
 
     // Let client-side JS hydrate product grids.
-    const settle = Math.min(4000, Math.max(0, opts.settleMs ?? 800));
+    const settle = Math.min(6000, Math.max(0, opts.settleMs ?? 1200));
     if (settle > 0) await page.waitForTimeout(settle);
 
-    // Trigger lazy loads.
-    await humanScroll(page);
-    if (settle > 0) await page.waitForTimeout(Math.min(1200, settle));
+    // Trigger lazy loads — deep by default so SPA product pages actually render.
+    const doScroll = opts.deepScroll !== false;
+    if (doScroll) {
+      await humanScroll(page, true);
+      // Extra dwell after scroll so IntersectionObserver fetches settle.
+      await page.waitForTimeout(Math.min(2000, settle));
+    }
 
     const status = response?.status() ?? 0;
     const finalUrl = page.url();
@@ -279,7 +319,8 @@ export async function novaDeepNavigate(
 
   try {
     const browser = await getBrowser();
-    context = await createContext(browser, opts.referer);
+    const useMobile = opts.mobile !== false;
+    context = await createContext(browser, opts.referer, { mobile: useMobile });
     page = await context.newPage();
 
     // Visit precursors — short waits, ignore failures.
@@ -305,10 +346,12 @@ export async function novaDeepNavigate(
         .catch(() => {});
     }
 
-    const settle = Math.min(4000, Math.max(0, opts.settleMs ?? 1000));
+    const settle = Math.min(6000, Math.max(0, opts.settleMs ?? 1500));
     if (settle > 0) await page.waitForTimeout(settle);
-    await humanScroll(page);
-    if (settle > 0) await page.waitForTimeout(Math.min(1200, settle));
+    if (opts.deepScroll !== false) {
+      await humanScroll(page, true);
+      await page.waitForTimeout(Math.min(2000, settle));
+    }
 
     const status = response?.status() ?? 0;
     const finalUrl = page.url();

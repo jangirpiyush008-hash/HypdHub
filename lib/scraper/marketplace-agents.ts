@@ -200,18 +200,30 @@ async function myntraStrategy4(): Promise<InternetDeal[]> {
 }
 
 async function myntraStrategy5(): Promise<InternetDeal[]> {
-  // Nova → /deals HTML, parsed with generic img+price regex.
-  // Myntra ships ~5MB of SSR HTML at /deals with full product cards.
-  const res = await novaDeepNavigate(
-    ["https://www.myntra.com/", "https://www.myntra.com/deals"],
-    { waitForSelector: "img[src*='myntassets']", settleMs: 1500 }
-  );
-  if (!res.ok) return [];
-  return parseImagePriceGeneric(res.text, {
-    marketplace: "Myntra",
-    imgHostPattern: "(?:assets|constant|cdn)\\.myntassets\\.com",
-    fallbackUrl: "https://www.myntra.com/deals",
-  });
+  // Try multiple URLs with mobile + deep scroll. Akamai is strict on desktop
+  // homepage but mobile /deals or /shop pages often get through.
+  const urls = [
+    "https://www.myntra.com/deals",
+    "https://www.myntra.com/bestsellers",
+    "https://www.myntra.com/shop/men",
+  ];
+  for (const url of urls) {
+    const res = await novaFetch(url, {
+      waitForSelector: "img[src*='myntassets']",
+      settleMs: 2500,
+      mobile: true,
+      deepScroll: true,
+    });
+    // Akamai challenge page is tiny (~500 bytes); real pages are >100KB.
+    if (!res.ok || res.text.length < 5000) continue;
+    const deals = parseImagePriceGeneric(res.text, {
+      marketplace: "Myntra",
+      imgHostPattern: "(?:assets|constant|cdn)\\.myntassets\\.com",
+      fallbackUrl: url,
+    });
+    if (deals.length > 0) return deals;
+  }
+  return [];
 }
 
 export async function scrapeMyntra(): Promise<InternetDeal[]> {
@@ -234,13 +246,24 @@ export async function scrapeMyntra(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function flipkartStrategy1(): Promise<InternetDeal[]> {
-  // Nova (real Chromium) — the only reliable way past Akamai on Flipkart.
-  const res = await novaDeepNavigate(
-    ["https://www.flipkart.com/", "https://www.flipkart.com/deals-of-the-day"],
-    { waitForSelector: "img[src*='rukminim']", settleMs: 1500 }
-  );
-  if (!res.ok) return [];
-  return parseFlipkartHtml(res.text, "https://www.flipkart.com/deals-of-the-day");
+  // Mobile + deep scroll. On phone profile Akamai is usually more permissive
+  // because Flipkart's mobile web is served to millions of real Android users.
+  for (const url of [
+    "https://www.flipkart.com/deals-of-the-day",
+    "https://www.flipkart.com/offers-store",
+    "https://www.flipkart.com/",
+  ]) {
+    const res = await novaFetch(url, {
+      waitForSelector: "img[src*='rukminim']",
+      settleMs: 2500,
+      mobile: true,
+      deepScroll: true,
+    });
+    if (!res.ok || res.text.length < 5000) continue;
+    const deals = parseFlipkartHtml(res.text, url);
+    if (deals.length > 0) return deals;
+  }
+  return [];
 }
 
 async function flipkartStrategy2(): Promise<InternetDeal[]> {
@@ -580,11 +603,14 @@ function parseImagePriceGeneric(
 }
 
 async function meeshoHtmlStrategy(path: string): Promise<InternetDeal[]> {
-  // Nova single-hop — we verified novaFetch(/deals) returns 222KB through
-  // DataDome reliably; novaDeepNavigate was timing out on the /home precursor.
+  // Mobile + deep-scroll. Meesho is mobile-first and server-renders more
+  // products for Android Chrome. Deep scroll triggers the IntersectionObserver
+  // that loads further tiles beyond the initial 2 SSR'd.
   let res = await novaFetch(`https://www.meesho.com${path}`, {
-    settleMs: 1500,
+    settleMs: 3000,
     waitForSelector: "img[src*='meesho']",
+    mobile: true,
+    deepScroll: true,
   });
   if (!res.ok) {
     res = await humanDeepNavigate([
@@ -851,31 +877,27 @@ export async function scrapeNykaa(): Promise<InternetDeal[]> {
 // ═══════════════════════════════════════════════════════════════════
 
 async function shopsyStrategy1(): Promise<InternetDeal[]> {
-  const res = await novaDeepNavigate(
-    ["https://www.shopsy.in/", "https://www.shopsy.in/deals"],
-    { waitForSelector: "img[src*='rukminim']", settleMs: 1500 }
-  );
+  // Mobile + deep scroll to render lazy-loaded product grid. /top-offers-store
+  // was confirmed by probe to return 109KB with rukminim imgs.
+  const res = await novaFetch("https://www.shopsy.in/top-offers-store", {
+    waitForSelector: "img[src*='rukminim']",
+    settleMs: 3000,
+    mobile: true,
+    deepScroll: true,
+  });
   if (res.ok) return parseShopsyHtml(res.text);
-  const fb = await humanDeepNavigate([
-    "https://www.shopsy.in/",
-    "https://www.shopsy.in/deals",
-  ]);
-  if (!fb.ok) return [];
-  return parseShopsyHtml(fb.text);
+  return [];
 }
 
 async function shopsyStrategy2(): Promise<InternetDeal[]> {
-  const res = await novaDeepNavigate(
-    ["https://www.shopsy.in/", "https://www.shopsy.in/all-offers"],
-    { waitForSelector: "img[src*='rukminim']", settleMs: 1500 }
-  );
+  const res = await novaFetch("https://www.shopsy.in/all-offers", {
+    waitForSelector: "img[src*='rukminim']",
+    settleMs: 3000,
+    mobile: true,
+    deepScroll: true,
+  });
   if (res.ok) return parseShopsyHtml(res.text);
-  const fb = await humanDeepNavigate([
-    "https://www.shopsy.in/",
-    "https://www.shopsy.in/all-offers",
-  ]);
-  if (!fb.ok) return [];
-  return parseShopsyHtml(fb.text);
+  return [];
 }
 
 function parseShopsyHtml(html: string): InternetDeal[] {
