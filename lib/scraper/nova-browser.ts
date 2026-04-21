@@ -448,6 +448,49 @@ export async function novaLaunchProbe(): Promise<{
   }
 }
 
+/**
+ * Diagnostic — navigate a URL and return every XHR/fetch URL the page
+ * issues, so we can pick which endpoint to hook for SPA product scraping.
+ */
+export async function listXhrs(
+  url: string,
+  opts: { timeoutMs?: number; settleMs?: number } = {}
+): Promise<Array<{ url: string; status: number; contentType: string; bodyLen: number }>> {
+  await acquire();
+  let context: BrowserContext | null = null;
+  let page: Page | null = null;
+  const xhrs: Array<{ url: string; status: number; contentType: string; bodyLen: number }> = [];
+  try {
+    const browser = await getBrowser();
+    context = await createContext(browser, undefined, { mobile: true });
+    page = await context.newPage();
+    page.on("response", async (r) => {
+      try {
+        const req = r.request();
+        const type = req.resourceType();
+        if (type !== "xhr" && type !== "fetch") return;
+        const u = r.url();
+        const ct = r.headers()["content-type"] ?? "";
+        let len = 0;
+        try {
+          const body = await r.body();
+          len = body.length;
+        } catch { /* ignore */ }
+        xhrs.push({ url: u, status: r.status(), contentType: ct, bodyLen: len });
+      } catch { /* ignore */ }
+    });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: opts.timeoutMs ?? 25000 });
+    await page.waitForTimeout(opts.settleMs ?? 2500);
+    await humanScroll(page, true);
+    await page.waitForTimeout(1500);
+  } catch { /* ignore */ } finally {
+    try { await page?.close(); } catch { /* ignore */ }
+    try { await context?.close(); } catch { /* ignore */ }
+    release();
+  }
+  return xhrs;
+}
+
 /** Shut down the pooled browser — called on process exit / manual admin. */
 export async function novaShutdown(): Promise<void> {
   if (!browserPromise) return;

@@ -37,6 +37,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ...result, elapsedMs: Date.now() - started });
   }
 
+  // mode=xhr → navigate the URL with Nova (mobile, deep scroll) and return
+  // the list of every XHR/fetch URL the page fired, so we can figure out
+  // which API endpoints to hook for SPA marketplaces.
+  if (mode === "xhr") {
+    try {
+      const { listXhrs } = await import("@/lib/scraper/nova-browser");
+      const xhrs = await listXhrs(url, { timeoutMs: 25000, settleMs: 3000 });
+      return NextResponse.json({ url, count: xhrs.length, xhrs, elapsedMs: Date.now() - started });
+    } catch (e) {
+      return NextResponse.json({
+        ok: false,
+        stage: "xhr-list",
+        error: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+        elapsedMs: Date.now() - started,
+      });
+    }
+  }
+
   if (!fetchFn) {
     return NextResponse.json({
       ok: false,
