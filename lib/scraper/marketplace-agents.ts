@@ -462,6 +462,10 @@ function meeshoDeal(cat: MeeshoCatalog): InternetDeal | null {
 /** Strategy 1: Meesho's internal product-feed endpoints. */
 async function meeshoApiStrategy(): Promise<InternetDeal[]> {
   const endpoints = [
+    // Mobile-web endpoint — less aggressive bot check than desktop.
+    "https://www.meesho.com/api/v1/products/feed/recommendations?limit=24&offset=0",
+    "https://www.meesho.com/api/v1/products/feed/lowest-price-products?limit=24&offset=0",
+    "https://www.meesho.com/api/v1/products/feed/deals?limit=24&offset=0",
     "https://www.meesho.com/api/1.0/products/feed/recommendations?limit=24&offset=0&category_id=56",
     "https://www.meesho.com/api/1.0/products/feed/lowest-price-products?limit=24&offset=0",
     "https://www.meesho.com/api/1.0/products/feed/deals?limit=24&offset=0",

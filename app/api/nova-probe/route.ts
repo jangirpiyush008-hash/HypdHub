@@ -55,6 +55,23 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // mode=window → dump window global state keys so we can find where SPA data
+  // actually lives (redux store, apollo cache, __NEXT_DATA__, etc).
+  if (mode === "window") {
+    try {
+      const { dumpWindowState } = await import("@/lib/scraper/nova-browser");
+      const state = await dumpWindowState(url);
+      return NextResponse.json({ url, ...state, elapsedMs: Date.now() - started });
+    } catch (e) {
+      return NextResponse.json({
+        ok: false,
+        stage: "window-dump",
+        error: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+        elapsedMs: Date.now() - started,
+      });
+    }
+  }
+
   if (!fetchFn) {
     return NextResponse.json({
       ok: false,

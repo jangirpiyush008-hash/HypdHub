@@ -491,6 +491,60 @@ export async function listXhrs(
   return xhrs;
 }
 
+/**
+ * Diagnostic — navigate a URL and dump top-level `window.*` keys plus a
+ * shallow preview of each. Used to find where SPAs stash product data
+ * (__NEXT_DATA__, __INITIAL_STATE__, Apollo cache, etc).
+ */
+export async function dumpWindowState(
+  url: string
+): Promise<{ keys: string[]; samples: Record<string, unknown> }> {
+  await acquire();
+  let context: BrowserContext | null = null;
+  let page: Page | null = null;
+  try {
+    const browser = await getBrowser();
+    context = await createContext(browser, undefined, { mobile: true });
+    page = await context.newPage();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.waitForTimeout(2500);
+    await humanScroll(page, true);
+    await page.waitForTimeout(1500);
+    const result = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any;
+      const interesting = [
+        "__NEXT_DATA__", "__INITIAL_STATE__", "__REDUX_STATE__", "__PRELOADED_STATE__",
+        "__APP_STATE__", "__APOLLO_STATE__", "APP_CONFIG", "__DATA__", "initialState",
+        "__STORE__", "__FLIPKART__", "adminApp", "appState",
+      ];
+      const samples: Record<string, unknown> = {};
+      for (const k of interesting) {
+        if (w[k] !== undefined) {
+          try {
+            const s = typeof w[k] === "string" ? w[k] : JSON.stringify(w[k]);
+            samples[k] = (s ?? "").slice(0, 1500);
+          } catch {
+            samples[k] = "[unstringifiable]";
+          }
+        }
+      }
+      // Also list top-level window keys that look custom (not built-in).
+      const builtins = new Set([
+        "window","self","document","location","history","navigator","screen","parent",
+        "top","frames","length","closed","opener","origin","frameElement",
+      ]);
+      const customKeys = Object.keys(w).filter((k) => !builtins.has(k) && /^[A-Z_$]/.test(k));
+      return { keys: customKeys.slice(0, 80), samples };
+    });
+    return result;
+  } finally {
+    try { await page?.close(); } catch { /* ignore */ }
+    try { await context?.close(); } catch { /* ignore */ }
+    release();
+  }
+}
+
 /** Shut down the pooled browser — called on process exit / manual admin. */
 export async function novaShutdown(): Promise<void> {
   if (!browserPromise) return;
