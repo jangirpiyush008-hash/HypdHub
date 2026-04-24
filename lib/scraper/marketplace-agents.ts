@@ -658,10 +658,10 @@ export async function scrapeMeesho(): Promise<InternetDeal[]> {
     return false;
   };
 
-  try { if (push(await meeshoApiStrategy())) return bag; } catch { /* next */ }
-  try { if (push(await meeshoHtmlStrategy("/deals"))) return bag; } catch { /* next */ }
-  try { if (push(await meeshoHtmlStrategy("/lowest-price-products"))) return bag; } catch { /* next */ }
-  try { if (push(await meeshoHtmlStrategy("/offers"))) return bag; } catch { /* next */ }
+  try { if (push(await meeshoApiStrategy())) return bag; } catch (e) { console.error("[scraper] meesho-api threw:", e instanceof Error ? e.message : String(e)); }
+  try { if (push(await meeshoHtmlStrategy("/deals"))) return bag; } catch (e) { console.error("[scraper] meesho-deals threw:", e instanceof Error ? e.message : String(e)); }
+  try { if (push(await meeshoHtmlStrategy("/lowest-price-products"))) return bag; } catch (e) { console.error("[scraper] meesho-lowest-price threw:", e instanceof Error ? e.message : String(e)); }
+  try { if (push(await meeshoHtmlStrategy("/offers"))) return bag; } catch (e) { console.error("[scraper] meesho-offers threw:", e instanceof Error ? e.message : String(e)); }
 
   return bag;
 }

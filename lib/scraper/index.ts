@@ -10,6 +10,7 @@
 
 import { InternetDeal } from "@/lib/types";
 import { getCachedDeals, setCachedDeals, isCacheFresh, getAllCachedDeals } from "./deal-cache";
+import { getCuratedDeals } from "./curated-deals";
 import {
   scrapeMyntra,
   scrapeFlipkart,
@@ -78,9 +79,15 @@ export async function scrapeAllMarketplaces(opts: { force?: boolean } = {}): Pro
     return result;
   }
 
-  // No cached scraped data — return empty, scrape in background
-  // (Supabase DB deals are the primary source now, not curated fallback)
-  const result = { deals: [] as InternetDeal[], sources: ["No scraped data yet"], scrapedAt: new Date().toISOString(), fetchedAt: now };
+  // No cached scraped data — serve curated fallback while scraping runs in background
+  const curatedDeals = (["Myntra", "Flipkart", "Meesho", "Ajio", "Nykaa", "Shopsy"] as const)
+    .flatMap((m) => getCuratedDeals(m));
+  const result = {
+    deals: curatedDeals,
+    sources: ["Curated fallback — live scrape running in background"],
+    scrapedAt: new Date().toISOString(),
+    fetchedAt: now,
+  };
   memCache = result;
   refreshAllInBackground().catch(() => {});
   return result;
@@ -108,9 +115,11 @@ async function runScrapeAll(opts: { bypassFreshCheck?: boolean } = {}): Promise<
           scrapedAt: new Date().toISOString(),
           strategy: "nova-agent",
         });
+      } else {
+        console.warn(`[scraper] ${s.name} returned 0 deals`);
       }
-    } catch {
-      // Skip failed marketplace
+    } catch (err) {
+      console.error(`[scraper] ${s.name} failed:`, err instanceof Error ? err.message : String(err));
     }
   }
   memCache = null;

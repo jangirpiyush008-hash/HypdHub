@@ -188,9 +188,13 @@ export async function tryStrategies(
     try {
       const response = await strategy.fn();
       if (response.ok && response.text.length > 200) {
+        console.log(`[scraper] ${strategy.name} succeeded (${response.text.length} bytes)`);
         return { response, strategy: strategy.name };
       }
-    } catch { /* next */ }
+      console.warn(`[scraper] ${strategy.name} returned no data (ok=${response.ok}, bytes=${response.text.length})`);
+    } catch (err) {
+      console.error(`[scraper] ${strategy.name} threw:`, err instanceof Error ? err.message : String(err));
+    }
   }
   return null;
 }
