@@ -667,6 +667,23 @@ export async function extractWindowProducts(
             if (v && typeof v === "object") stack.push(v);
           }
         }
+        // Image enrichment — for products from window state without an image,
+        // try matching the product URL slug against rendered <a> hrefs and
+        // pull the <img> src from inside that anchor.
+        if (out.some((p) => !p.image)) {
+          const anchors = Array.from(document.querySelectorAll("a[href]"));
+          for (const p of out) {
+            if (p.image || !p.url) continue;
+            const slug = p.url.replace(/^https?:\/\/[^/]+/, "");
+            if (slug.length < 6) continue;
+            const a = anchors.find((el) => el.getAttribute("href")?.includes(slug));
+            const img = a?.querySelector("img");
+            const src = img?.getAttribute("src") || img?.getAttribute("data-src") || "";
+            if (src && /^https?:|^\/\//.test(src) && !/data:|sprite|placeholder\./.test(src)) {
+              p.image = src.startsWith("http") ? src : "https:" + (src.startsWith("//") ? src : "//" + src);
+            }
+          }
+        }
         // DOM fallback — when window-state walking yields too few products,
         // scan every <img> on the page, find its enclosing card-like
         // ancestor, and pull (alt|title|nearest-text) + nearest ₹price.
