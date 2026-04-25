@@ -573,14 +573,19 @@ export async function extractWindowProducts(
     const browser = await getBrowser();
     context = await createContext(browser, undefined, { mobile: true });
     page = await context.newPage();
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForTimeout(opts.settleMs ?? 4000);
-    await humanScroll(page, true);
-    await page.waitForTimeout(3000);
-    await humanScroll(page, true);
-    await page.waitForTimeout(3000);
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+    await page.waitForTimeout(opts.settleMs ?? 2500);
     await humanScroll(page, true);
     await page.waitForTimeout(2000);
+    await humanScroll(page, true);
+    await page.waitForTimeout(2000);
+
+    // Early exit on Akamai/DataDome challenge pages — they're tiny and don't
+    // contain product data. Saves ~10s per blocked URL across rotations.
+    const html = await page.content();
+    if (html.length < 8000 && /sec-cpt|datadome|captcha|access\s*denied|forbidden/i.test(html)) {
+      return [];
+    }
 
     const products = await page.evaluate(
       ({ max, imgHint, urlPrefix }: { max: number; imgHint: string; urlPrefix: string }) => {

@@ -30,7 +30,7 @@ const SCRAPERS: Array<{ name: MarketplaceName; fn: () => Promise<InternetDeal[]>
   { name: "Shopsy", fn: scrapeShopsy },
 ];
 
-const CACHE_FRESH_MINUTES = 10;
+const CACHE_FRESH_MINUTES = 120;
 let memCache: { deals: InternetDeal[]; sources: string[]; scrapedAt: string; fetchedAt: number } | null = null;
 const MEM_CACHE_MS = CACHE_FRESH_MINUTES * 60 * 1000;
 

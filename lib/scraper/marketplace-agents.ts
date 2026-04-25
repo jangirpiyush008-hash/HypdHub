@@ -253,9 +253,7 @@ export async function scrapeMyntra(): Promise<InternetDeal[]> {
   const MYNTRA_URLS = [
     "https://www.myntra.com/men-tshirts",
     "https://www.myntra.com/women-kurtas",
-    "https://www.myntra.com/shoes",
     "https://www.myntra.com/deals",
-    "https://www.myntra.com/bestsellers",
   ];
   for (const url of MYNTRA_URLS) {
     try {
@@ -436,10 +434,6 @@ export async function scrapeFlipkart(): Promise<InternetDeal[]> {
     "https://www.flipkart.com/search?q=mobile",
     "https://www.flipkart.com/search?q=tshirt",
     "https://www.flipkart.com/search?q=headphone",
-    "https://www.flipkart.com/search?q=shoes",
-    "https://www.flipkart.com/search?q=watch",
-    "https://www.flipkart.com/mobile-phones-store",
-    "https://www.flipkart.com/electronics-store",
   ];
   for (const url of FLIPKART_URLS) {
     try {
@@ -736,9 +730,6 @@ export async function scrapeMeesho(): Promise<InternetDeal[]> {
     "https://www.meesho.com/",
     "https://www.meesho.com/search?q=kurta",
     "https://www.meesho.com/search?q=tshirt",
-    "https://www.meesho.com/search?q=saree",
-    "https://www.meesho.com/search?q=jeans",
-    "https://www.meesho.com/search?q=shoes",
   ];
   for (const url of MEESHO_WINDOW_URLS) {
     try {
