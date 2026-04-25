@@ -3,7 +3,8 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}"
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./sections/**/*.{js,ts,jsx,tsx,mdx}"
   ],
   theme: {
     extend: {
@@ -25,32 +26,32 @@ const config: Config = {
       },
       fontFamily: {
         headline: [
-          "\"Urbanist\"",
+          "var(--font-headline)",
           "ui-sans-serif",
           "system-ui",
           "sans-serif"
         ],
         body: [
-          "\"Urbanist\"",
+          "var(--font-body)",
           "ui-sans-serif",
           "system-ui",
           "sans-serif"
         ]
       },
       boxShadow: {
-        ambient: "0 8px 32px rgba(0, 0, 0, 0.12)",
-        glow: "0 0 20px rgba(251, 108, 35, 0.18)",
-        "glow-red": "0 0 20px rgba(233, 64, 87, 0.18)"
+        ambient: "0 24px 80px rgba(0, 0, 0, 0.28)",
+        glow: "0 0 20px rgba(255, 255, 255, 0.16)",
+        "glow-red": "0 0 20px rgba(255, 255, 255, 0.1)"
       },
       backgroundImage: {
         "hero-glow":
-          "radial-gradient(ellipse at top right, rgba(251,108,35,0.1), transparent 40%), radial-gradient(ellipse at bottom left, rgba(138,35,135,0.08), transparent 30%)",
+          "radial-gradient(circle at top, rgba(255,255,255,0.12), transparent 38%), radial-gradient(circle at 20% 80%, rgba(120,120,130,0.12), transparent 32%)",
         "cta-gradient":
-          "linear-gradient(135deg, #fb6c23 0%, #e94057 50%, #8a2387 100%)",
+          "linear-gradient(135deg, #fafafa 0%, #d4d4d8 100%)",
         "hypd-gradient":
-          "linear-gradient(20deg, #8a2387, #e94057, #f27121)",
+          "linear-gradient(20deg, #fafafa, #d4d4d8, #71717a)",
         "card-gradient":
-          "linear-gradient(180deg, rgba(251,108,35,0.08), rgba(233,64,87,0.12))"
+          "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))"
       }
     }
   },

@@ -545,6 +545,61 @@ export async function dumpWindowState(
   }
 }
 
+/**
+ * Land on `landingUrl` (so cookies + Akamai/DataDome session are established),
+ * then call `apiUrls` from inside the page via fetch(). Returns the first
+ * endpoint that responds with JSON (status 2xx, parsable). Bypasses TLS
+ * fingerprinting because the request originates from the real browser.
+ */
+export async function inPageJson<T = unknown>(
+  landingUrl: string,
+  apiUrls: string[],
+  opts: { headers?: Record<string, string>; timeoutMs?: number } = {}
+): Promise<{ url: string; data: T } | null> {
+  await acquire();
+  let context: BrowserContext | null = null;
+  let page: Page | null = null;
+  try {
+    const browser = await getBrowser();
+    context = await createContext(browser, undefined, { mobile: true });
+    page = await context.newPage();
+    await page.goto(landingUrl, { waitUntil: "domcontentloaded", timeout: opts.timeoutMs ?? 25000 });
+    await page.waitForTimeout(1800);
+    await humanScroll(page, false);
+    await page.waitForTimeout(800);
+
+    const result = await page.evaluate(
+      async ({ urls, headers }: { urls: string[]; headers: Record<string, string> }) => {
+        for (const u of urls) {
+          try {
+            const r = await fetch(u, {
+              method: "GET",
+              credentials: "include",
+              headers: { Accept: "application/json,*/*;q=0.8", ...headers },
+            });
+            if (!r.ok) continue;
+            const text = await r.text();
+            try {
+              return { url: u, data: JSON.parse(text) };
+            } catch {
+              if (text.length > 100) return { url: u, data: text };
+            }
+          } catch {
+            /* try next */
+          }
+        }
+        return null;
+      },
+      { urls: apiUrls, headers: opts.headers ?? {} }
+    );
+    return result as { url: string; data: T } | null;
+  } finally {
+    try { await page?.close(); } catch { /* ignore */ }
+    try { await context?.close(); } catch { /* ignore */ }
+    release();
+  }
+}
+
 /** Shut down the pooled browser — called on process exit / manual admin. */
 export async function novaShutdown(): Promise<void> {
   if (!browserPromise) return;

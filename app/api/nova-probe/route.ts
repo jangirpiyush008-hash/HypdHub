@@ -55,6 +55,34 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // mode=inpage → land on `url`, then fetch every comma-separated `api` URL
+  // from inside the page (reuses session cookies + TLS fingerprint).
+  if (mode === "inpage") {
+    const apiParam = params.get("api") ?? "";
+    const apiUrls = apiParam.split(",").map((s) => s.trim()).filter(Boolean);
+    if (!apiUrls.length) {
+      return NextResponse.json({ ok: false, error: "missing ?api=url1,url2,..." });
+    }
+    try {
+      const { inPageJson } = await import("@/lib/scraper/nova-browser");
+      const hit = await inPageJson(url, apiUrls, { timeoutMs: 30000 });
+      if (!hit) {
+        return NextResponse.json({ ok: false, tried: apiUrls, hit: null, elapsedMs: Date.now() - started });
+      }
+      const preview = typeof hit.data === "string"
+        ? hit.data.slice(0, 800)
+        : JSON.stringify(hit.data).slice(0, 800);
+      return NextResponse.json({ ok: true, hit: { url: hit.url, preview }, elapsedMs: Date.now() - started });
+    } catch (e) {
+      return NextResponse.json({
+        ok: false,
+        stage: "inpage",
+        error: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+        elapsedMs: Date.now() - started,
+      });
+    }
+  }
+
   // mode=window → dump window global state keys so we can find where SPA data
   // actually lives (redux store, apollo cache, __NEXT_DATA__, etc).
   if (mode === "window") {
