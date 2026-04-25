@@ -578,11 +578,13 @@ export async function inPageJson<T = unknown>(
               headers: { Accept: "application/json,*/*;q=0.8", ...headers },
             });
             if (!r.ok) continue;
+            const ct = (r.headers.get("content-type") ?? "").toLowerCase();
+            if (!ct.includes("json")) continue;
             const text = await r.text();
             try {
               return { url: u, data: JSON.parse(text) };
             } catch {
-              if (text.length > 100) return { url: u, data: text };
+              /* not JSON, skip */
             }
           } catch {
             /* try next */
