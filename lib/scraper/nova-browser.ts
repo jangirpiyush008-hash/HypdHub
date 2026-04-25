@@ -681,7 +681,7 @@ export async function extractWindowProducts(
             // (data URIs, sprites, icons), but don't gate on hint host.
             if (/data:|sprite|icon|placeholder\.|\.svg(\?|$)/i.test(src)) continue;
             // Reject static UI assets that aren't product images.
-            if (/\/static-assets|\/promos\/|\/buying-guide|\/cp-zion\/|\/linchpin-web\/|\/fa_[a-f0-9]+\.png|\/fk-p-|\/img\/[a-z-]+_[a-f0-9]+\./i.test(src)) continue;
+            if (/\/static-assets|\/promos\/|\/buying-guide|\/cp-zion\/|\/linchpin-web\/|\/fk-p-/i.test(src)) continue;
             const hintMatched = !imgHint || src.includes(imgHint);
             // Walk up to find a card with rupee price
             let card: HTMLElement | null = img.closest<HTMLElement>("a,article,li,div");
@@ -721,7 +721,14 @@ export async function extractWindowProducts(
             if (/^[A-Z][A-Z\s]{2,30}$/.test(name)) continue;
             if (/^(?:Filters|FILTERS|CATEGOR|Buying\s*Guide)/i.test(name)) continue;
             if ((name.match(/[A-Z]{4,}/g) ?? []).length >= 3) continue;
-            name = name.slice(0, 140);
+            // Clean: card text often concatenates name+rating+%off+price+offer.
+            // Cut at the first separator that signals end-of-name.
+            name = name
+              .split(/\s*\(\d+\)|\s*\d+%\s*off|₹|\bAdd to\b|\bBank Offer\b|\b\d+\s*year\s*warranty\b|\bRs\.?\s*\d/i)[0]
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 140);
+            if (name.length < 4) continue;
             const key = `${name.toLowerCase().slice(0, 40)}|${price}`;
             if (seen.has(key)) continue;
             seen.add(key);
