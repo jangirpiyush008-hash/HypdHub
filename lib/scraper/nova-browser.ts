@@ -574,9 +574,11 @@ export async function extractWindowProducts(
     context = await createContext(browser, undefined, { mobile: true });
     page = await context.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForTimeout(opts.settleMs ?? 2500);
+    await page.waitForTimeout(opts.settleMs ?? 4000);
     await humanScroll(page, true);
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2500);
+    await humanScroll(page, true);
+    await page.waitForTimeout(2500);
 
     const products = await page.evaluate(
       ({ max, imgHint, urlPrefix }: { max: number; imgHint: string; urlPrefix: string }) => {
@@ -661,6 +663,61 @@ export async function extractWindowProducts(
           }
           for (const v of Object.values(o)) {
             if (v && typeof v === "object") stack.push(v);
+          }
+        }
+        // DOM fallback — when window-state walking yields too few products,
+        // scan every <img> on the page, find its enclosing card-like
+        // ancestor, and pull (alt|title|nearest-text) + nearest ₹price.
+        if (out.length < 5) {
+          const allImgs = Array.from(document.querySelectorAll("img"));
+          const RUPEE_RE = /₹\s*([0-9][0-9,]{1,7})/;
+          for (const img of allImgs) {
+            if (out.length >= max) break;
+            const src = img.getAttribute("src") || img.getAttribute("data-src") || "";
+            if (!src || !/^https?:|^\/\//.test(src)) continue;
+            if (imgHint && !src.includes(imgHint)) continue;
+            // Walk up to find a card with rupee price
+            let card: HTMLElement | null = img.closest<HTMLElement>("a,article,li,div");
+            let priceText = "";
+            for (let i = 0; i < 6 && card; i++) {
+              const t = card.innerText || card.textContent || "";
+              const m = t.match(RUPEE_RE);
+              if (m) { priceText = m[1]; break; }
+              card = card.parentElement;
+            }
+            if (!priceText) continue;
+            const price = parseInt(priceText.replace(/,/g, ""), 10);
+            if (!Number.isFinite(price) || price < 30 || price > 1_000_000) continue;
+            // Get name: prefer alt/title, then aria-label/h*/parent first text line
+            let name = (img.getAttribute("alt") || img.getAttribute("title") || "").trim();
+            const GENERIC = /^(?:header|footer|banner|image|img|logo|icon|photo|picture|thumbnail|product|deal|offer|sale|shop|card|tile|hero|main|default|placeholder|)$/i;
+            if (!name || GENERIC.test(name) || /^\d+$/.test(name)) {
+              const aria = img.getAttribute("aria-label");
+              if (aria) name = aria.trim();
+            }
+            if (!name || GENERIC.test(name) || /^\d+$/.test(name)) {
+              // try nearest h1-h6 / span text
+              let cur: HTMLElement | null = img.parentElement;
+              for (let i = 0; i < 5 && cur && (!name || GENERIC.test(name)); i++) {
+                const h = cur.querySelector("h1,h2,h3,h4,h5,h6");
+                const candidate = (h?.textContent || cur.textContent || "").trim().split("\n")[0]?.trim();
+                if (candidate && candidate.length >= 4 && !GENERIC.test(candidate) && /[a-zA-Z]/.test(candidate)) {
+                  name = candidate;
+                  break;
+                }
+                cur = cur.parentElement;
+              }
+            }
+            if (!name || name.length < 4 || GENERIC.test(name) || !/[a-zA-Z]/.test(name)) continue;
+            name = name.slice(0, 140);
+            const key = `${name.toLowerCase().slice(0, 40)}|${price}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const fullSrc = src.startsWith("http") ? src : "https:" + (src.startsWith("//") ? src : "//" + src);
+            const linkEl = img.closest("a");
+            let purl = linkEl?.getAttribute("href") || "";
+            if (purl && !purl.startsWith("http") && urlPrefix) purl = urlPrefix + (purl.startsWith("/") ? purl : "/" + purl);
+            out.push({ name, price, image: fullSrc, url: purl || undefined });
           }
         }
         return out;
