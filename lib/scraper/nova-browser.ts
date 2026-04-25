@@ -576,9 +576,11 @@ export async function extractWindowProducts(
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(opts.settleMs ?? 4000);
     await humanScroll(page, true);
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(3000);
     await humanScroll(page, true);
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(3000);
+    await humanScroll(page, true);
+    await page.waitForTimeout(2000);
 
     const products = await page.evaluate(
       ({ max, imgHint, urlPrefix }: { max: number; imgHint: string; urlPrefix: string }) => {
@@ -675,7 +677,10 @@ export async function extractWindowProducts(
             if (out.length >= max) break;
             const src = img.getAttribute("src") || img.getAttribute("data-src") || "";
             if (!src || !/^https?:|^\/\//.test(src)) continue;
-            if (imgHint && !src.includes(imgHint)) continue;
+            // Soft preference: skip src that's clearly not a product image
+            // (data URIs, sprites, icons), but don't gate on hint host.
+            if (/data:|sprite|icon|placeholder\.|\.svg(\?|$)/i.test(src)) continue;
+            const hintMatched = !imgHint || src.includes(imgHint);
             // Walk up to find a card with rupee price
             let card: HTMLElement | null = img.closest<HTMLElement>("a,article,li,div");
             let priceText = "";
@@ -690,7 +695,7 @@ export async function extractWindowProducts(
             if (!Number.isFinite(price) || price < 30 || price > 1_000_000) continue;
             // Get name: prefer alt/title, then aria-label/h*/parent first text line
             let name = (img.getAttribute("alt") || img.getAttribute("title") || "").trim();
-            const GENERIC = /^(?:header|footer|banner|image|img|logo|icon|photo|picture|thumbnail|product|deal|offer|sale|shop|card|tile|hero|main|default|placeholder|)$/i;
+            const GENERIC = /^(?:header|footer|banner|image|img|logo|icon|photo|picture|thumbnail|product|deal|offer|sale|shop|card|tile|hero|main|default|placeholder|image\s*placeholder|loading|lazy|spinner|loader|no\s*image|sponsored|advertisement|ad|item|view|more|see\s*all|)$/i;
             if (!name || GENERIC.test(name) || /^\d+$/.test(name)) {
               const aria = img.getAttribute("aria-label");
               if (aria) name = aria.trim();
@@ -714,6 +719,7 @@ export async function extractWindowProducts(
             if (seen.has(key)) continue;
             seen.add(key);
             const fullSrc = src.startsWith("http") ? src : "https:" + (src.startsWith("//") ? src : "//" + src);
+            void hintMatched;
             const linkEl = img.closest("a");
             let purl = linkEl?.getAttribute("href") || "";
             if (purl && !purl.startsWith("http") && urlPrefix) purl = urlPrefix + (purl.startsWith("/") ? purl : "/" + purl);
