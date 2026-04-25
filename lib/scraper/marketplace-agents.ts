@@ -408,9 +408,9 @@ export async function scrapeFlipkart(): Promise<InternetDeal[]> {
   // Window-state strategy first — Flipkart hydrates products into
   // __staticRouterHydrationData on category/search pages.
   const FLIPKART_URLS = [
-    "https://www.flipkart.com/search?q=offers",
-    "https://www.flipkart.com/offers-store",
-    "https://www.flipkart.com/mobiles/pr?sid=tyy,4io",
+    "https://www.flipkart.com/search?q=mobile",
+    "https://www.flipkart.com/search?q=tshirt",
+    "https://www.flipkart.com/search?q=headphone",
   ];
   for (const url of FLIPKART_URLS) {
     try {
@@ -701,9 +701,9 @@ export async function scrapeMeesho(): Promise<InternetDeal[]> {
   // Window-state pull from a real category landing — Meesho hydrates
   // products into __NEXT_DATA__ on category pages even when /deals stays empty.
   const MEESHO_WINDOW_URLS = [
-    "https://www.meesho.com/women-kurta-sets/pl/3vy",
-    "https://www.meesho.com/men-tshirts/pl/3qg",
-    "https://www.meesho.com/deals",
+    "https://www.meesho.com/search?q=kurta",
+    "https://www.meesho.com/search?q=tshirt",
+    "https://www.meesho.com/search?q=saree",
   ];
   for (const url of MEESHO_WINDOW_URLS) {
     try {
@@ -829,9 +829,9 @@ async function ajioStrategy4(): Promise<InternetDeal[]> {
 export async function scrapeAjio(): Promise<InternetDeal[]> {
   // Ajio hydrates products into __PRELOADED_STATE__ on category pages.
   const AJIO_URLS = [
-    "https://www.ajio.com/c/men-tshirts",
-    "https://www.ajio.com/c/women-dresses",
-    "https://www.ajio.com/shop/sale",
+    "https://www.ajio.com/search/?text=tshirt",
+    "https://www.ajio.com/search/?text=dress",
+    "https://www.ajio.com/search/?text=shoes",
   ];
   for (const url of AJIO_URLS) {
     try {
@@ -1103,9 +1103,9 @@ export async function scrapeShopsy(): Promise<InternetDeal[]> {
   // Shopsy is Flipkart's value-tier site; it hydrates products into
   // __NEXT_DATA__ on category/listing pages.
   const SHOPSY_URLS = [
-    "https://www.shopsy.in/mobiles-store",
-    "https://www.shopsy.in/fashion-store",
-    "https://www.shopsy.in/grocery-store",
+    "https://www.shopsy.in/search?q=mobile",
+    "https://www.shopsy.in/search?q=tshirt",
+    "https://www.shopsy.in/search?q=headphone",
   ];
   for (const url of SHOPSY_URLS) {
     try {
