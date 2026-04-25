@@ -247,6 +247,29 @@ async function myntraStrategy5(): Promise<InternetDeal[]> {
 }
 
 export async function scrapeMyntra(): Promise<InternetDeal[]> {
+  // Window-state pull from search URLs first — this proved most resilient
+  // for Ajio/Shopsy and rotates across multiple queries so one Akamai-flagged
+  // landing doesn't kill the whole run.
+  const MYNTRA_URLS = [
+    "https://www.myntra.com/men-tshirts",
+    "https://www.myntra.com/women-kurtas",
+    "https://www.myntra.com/shoes",
+    "https://www.myntra.com/deals",
+    "https://www.myntra.com/bestsellers",
+  ];
+  for (const url of MYNTRA_URLS) {
+    try {
+      const prods = await extractWindowProducts(url, {
+        imgHostHint: "myntassets",
+        productUrlPrefix: "https://www.myntra.com",
+        maxProducts: 60,
+        settleMs: 3500,
+      });
+      const deals = dealsFromWindow(prods, "Myntra", url);
+      if (deals.length >= 5) return deals;
+    } catch { /* next */ }
+  }
+
   const result = await tryStrategies([
     { name: "myntra-nova-html", fn: () => myntraStrategy5().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "myntra-search-api", fn: () => myntraStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
@@ -407,10 +430,16 @@ function parseFlipkartHtml(html: string, pageUrl: string): InternetDeal[] {
 export async function scrapeFlipkart(): Promise<InternetDeal[]> {
   // Window-state strategy first — Flipkart hydrates products into
   // __staticRouterHydrationData on category/search pages.
+  // Rotate across search queries, mobile + desktop hosts, and product-listing
+  // pages. Akamai often flags one path while leaving another open.
   const FLIPKART_URLS = [
     "https://www.flipkart.com/search?q=mobile",
     "https://www.flipkart.com/search?q=tshirt",
     "https://www.flipkart.com/search?q=headphone",
+    "https://www.flipkart.com/search?q=shoes",
+    "https://www.flipkart.com/search?q=watch",
+    "https://www.flipkart.com/mobile-phones-store",
+    "https://www.flipkart.com/electronics-store",
   ];
   for (const url of FLIPKART_URLS) {
     try {
@@ -700,10 +729,16 @@ export async function scrapeMeesho(): Promise<InternetDeal[]> {
 
   // Window-state pull from a real category landing — Meesho hydrates
   // products into __NEXT_DATA__ on category pages even when /deals stays empty.
+  // Rotate across multiple queries + the homepage. DataDome flags repeated
+  // hits on /search hard, but the homepage often goes through and shows
+  // featured products in __NEXT_DATA__.
   const MEESHO_WINDOW_URLS = [
+    "https://www.meesho.com/",
     "https://www.meesho.com/search?q=kurta",
     "https://www.meesho.com/search?q=tshirt",
     "https://www.meesho.com/search?q=saree",
+    "https://www.meesho.com/search?q=jeans",
+    "https://www.meesho.com/search?q=shoes",
   ];
   for (const url of MEESHO_WINDOW_URLS) {
     try {
