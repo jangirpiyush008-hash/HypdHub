@@ -83,6 +83,26 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // mode=products → run extractWindowProducts on `url`, return list
+  if (mode === "products") {
+    try {
+      const { extractWindowProducts } = await import("@/lib/scraper/nova-browser");
+      const products = await extractWindowProducts(url, {
+        imgHostHint: params.get("imgHost") ?? undefined,
+        productUrlPrefix: params.get("urlPrefix") ?? undefined,
+        maxProducts: 60,
+      });
+      return NextResponse.json({ url, count: products.length, sample: products.slice(0, 8), elapsedMs: Date.now() - started });
+    } catch (e) {
+      return NextResponse.json({
+        ok: false,
+        stage: "extract-products",
+        error: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+        elapsedMs: Date.now() - started,
+      });
+    }
+  }
+
   // mode=window → dump window global state keys so we can find where SPA data
   // actually lives (redux store, apollo cache, __NEXT_DATA__, etc).
   if (mode === "window") {

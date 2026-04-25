@@ -546,6 +546,136 @@ export async function dumpWindowState(
 }
 
 /**
+ * Generic product extractor for SPA marketplaces. Navigates the URL with deep
+ * scroll, then in-page tree-walks every known window state global
+ * (`__NEXT_DATA__`, `__PRELOADED_STATE__`, `__staticRouterHydrationData`,
+ * `__APOLLO_STATE__`, etc) collecting objects shaped like products: must have
+ * a name-ish field, a numeric price, and ideally an image URL.
+ */
+export type ExtractedProduct = {
+  name: string;
+  price: number;
+  mrp?: number;
+  image?: string;
+  url?: string;
+  brand?: string;
+};
+
+export async function extractWindowProducts(
+  url: string,
+  opts: { imgHostHint?: string; productUrlPrefix?: string; maxProducts?: number; settleMs?: number } = {}
+): Promise<ExtractedProduct[]> {
+  const max = opts.maxProducts ?? 60;
+  await acquire();
+  let context: BrowserContext | null = null;
+  let page: Page | null = null;
+  try {
+    const browser = await getBrowser();
+    context = await createContext(browser, undefined, { mobile: true });
+    page = await context.newPage();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForTimeout(opts.settleMs ?? 2500);
+    await humanScroll(page, true);
+    await page.waitForTimeout(1500);
+
+    const products = await page.evaluate(
+      ({ max, imgHint, urlPrefix }: { max: number; imgHint: string; urlPrefix: string }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = window as any;
+        const roots: unknown[] = [];
+        const rootKeys = [
+          "__NEXT_DATA__", "__PRELOADED_STATE__", "__INITIAL_STATE__",
+          "__REDUX_STATE__", "__APP_STATE__", "__APOLLO_STATE__",
+          "__staticRouterHydrationData", "__DATA__", "initialState",
+        ];
+        for (const k of rootKeys) if (w[k] !== undefined) roots.push(w[k]);
+
+        const NAME_KEYS = ["name", "title", "productName", "product_name", "displayName", "shortDescription"];
+        const PRICE_KEYS = ["price", "finalPrice", "sellingPrice", "selling_price", "currentPrice", "discountedPrice", "offerPrice", "offer_price", "min_price", "minPrice"];
+        const MRP_KEYS = ["mrp", "originalPrice", "original_price", "listPrice", "list_price", "strikePrice", "strike_price", "wasPriceData"];
+        const IMG_KEYS = ["image", "images", "imageUrl", "image_url", "imgUrl", "thumbnail", "img", "media", "mediaList"];
+        const URL_KEYS = ["url", "permalink", "productUrl", "product_url", "pdpUrl", "link", "slug"];
+        const BRAND_KEYS = ["brand", "brandName", "brand_name", "store"];
+
+        const pickStr = (o: Record<string, unknown>, keys: string[]): string | undefined => {
+          for (const k of keys) {
+            const v = o[k];
+            if (typeof v === "string" && v.trim().length > 1 && v.length < 250) return v.trim();
+            if (Array.isArray(v) && typeof v[0] === "string") return v[0];
+            if (v && typeof v === "object") {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const inner = (v as any).url ?? (v as any).src ?? (v as any).href;
+              if (typeof inner === "string") return inner;
+            }
+          }
+          return undefined;
+        };
+        const pickNum = (o: Record<string, unknown>, keys: string[]): number | undefined => {
+          for (const k of keys) {
+            let v: unknown = o[k];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (v && typeof v === "object" && (v as any).value !== undefined) v = (v as any).value;
+            const n = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v.replace(/[^\d.]/g, "")) : NaN;
+            if (Number.isFinite(n) && n > 9 && n < 1_000_000) return n;
+          }
+          return undefined;
+        };
+
+        const seen = new Set<string>();
+        const out: ExtractedProduct[] = [];
+        const stack: unknown[] = [...roots];
+        const visited = new WeakSet<object>();
+        let steps = 0;
+        while (stack.length && steps < 200_000 && out.length < max) {
+          steps++;
+          const node = stack.pop();
+          if (!node || typeof node !== "object") continue;
+          if (visited.has(node as object)) continue;
+          visited.add(node as object);
+
+          if (Array.isArray(node)) {
+            for (const v of node) stack.push(v);
+            continue;
+          }
+          const o = node as Record<string, unknown>;
+          const name = pickStr(o, NAME_KEYS);
+          const price = pickNum(o, PRICE_KEYS);
+          if (name && price && name.length >= 4 && /[a-zA-Z]/.test(name)) {
+            let img = pickStr(o, IMG_KEYS);
+            if (img && imgHint && !img.includes(imgHint) && !img.startsWith("http")) img = undefined;
+            if (img && !img.startsWith("http")) img = "https:" + (img.startsWith("//") ? img : "//" + img);
+            let purl = pickStr(o, URL_KEYS);
+            if (purl && urlPrefix && !purl.startsWith("http")) purl = urlPrefix + (purl.startsWith("/") ? purl : "/" + purl);
+            const key = `${name}|${price}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              const p: ExtractedProduct = { name, price };
+              const mrp = pickNum(o, MRP_KEYS);
+              if (mrp && mrp > price) p.mrp = mrp;
+              if (img) p.image = img;
+              if (purl) p.url = purl;
+              const brand = pickStr(o, BRAND_KEYS);
+              if (brand) p.brand = brand;
+              out.push(p);
+            }
+          }
+          for (const v of Object.values(o)) {
+            if (v && typeof v === "object") stack.push(v);
+          }
+        }
+        return out;
+      },
+      { max, imgHint: opts.imgHostHint ?? "", urlPrefix: opts.productUrlPrefix ?? "" }
+    );
+    return products as ExtractedProduct[];
+  } finally {
+    try { await page?.close(); } catch { /* ignore */ }
+    try { await context?.close(); } catch { /* ignore */ }
+    release();
+  }
+}
+
+/**
  * Land on `landingUrl` (so cookies + Akamai/DataDome session are established),
  * then call `apiUrls` from inside the page via fetch(). Returns the first
  * endpoint that responds with JSON (status 2xx, parsable). Bypasses TLS

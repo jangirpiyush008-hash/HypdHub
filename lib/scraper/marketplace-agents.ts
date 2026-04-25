@@ -11,7 +11,27 @@
 
 import { InternetDeal } from "@/lib/types";
 import { humanFetch, humanNavigate, humanDeepNavigate, tryStrategies, getRandomProfile } from "./human-agent";
-import { novaFetch, novaDeepNavigate } from "./nova-browser";
+import { novaFetch, novaDeepNavigate, extractWindowProducts, type ExtractedProduct } from "./nova-browser";
+
+/** Convert window-state-extracted products into InternetDeal records. */
+function dealsFromWindow(
+  products: ExtractedProduct[],
+  marketplace: Marketplace,
+  fallbackUrl: string
+): InternetDeal[] {
+  return products
+    .filter((p) => p.name && p.price > 9 && p.price < 1_000_000 && /[a-zA-Z]/.test(p.name))
+    .map((p) =>
+      makeDeal({
+        title: p.name,
+        marketplace,
+        currentPrice: p.price,
+        originalPrice: p.mrp,
+        url: p.url || fallbackUrl,
+        imageUrl: p.image,
+      })
+    );
+}
 
 type Marketplace = InternetDeal["marketplace"];
 
@@ -385,6 +405,26 @@ function parseFlipkartHtml(html: string, pageUrl: string): InternetDeal[] {
 }
 
 export async function scrapeFlipkart(): Promise<InternetDeal[]> {
+  // Window-state strategy first — Flipkart hydrates products into
+  // __staticRouterHydrationData on category/search pages.
+  const FLIPKART_URLS = [
+    "https://www.flipkart.com/search?q=offers",
+    "https://www.flipkart.com/offers-store",
+    "https://www.flipkart.com/mobiles/pr?sid=tyy,4io",
+  ];
+  for (const url of FLIPKART_URLS) {
+    try {
+      const products = await extractWindowProducts(url, {
+        imgHostHint: "rukminim",
+        productUrlPrefix: "https://www.flipkart.com",
+        maxProducts: 60,
+        settleMs: 3000,
+      });
+      const deals = dealsFromWindow(products, "Flipkart", url);
+      if (deals.length >= 3) return deals;
+    } catch { /* try next */ }
+  }
+
   const result = await tryStrategies([
     { name: "flipkart-navigate", fn: () => flipkartStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "flipkart-offers", fn: () => flipkartStrategy2().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
@@ -658,6 +698,25 @@ export async function scrapeMeesho(): Promise<InternetDeal[]> {
     return false;
   };
 
+  // Window-state pull from a real category landing — Meesho hydrates
+  // products into __NEXT_DATA__ on category pages even when /deals stays empty.
+  const MEESHO_WINDOW_URLS = [
+    "https://www.meesho.com/women-kurta-sets/pl/3vy",
+    "https://www.meesho.com/men-tshirts/pl/3qg",
+    "https://www.meesho.com/deals",
+  ];
+  for (const url of MEESHO_WINDOW_URLS) {
+    try {
+      const prods = await extractWindowProducts(url, {
+        imgHostHint: "meesho",
+        productUrlPrefix: "https://www.meesho.com",
+        maxProducts: 30,
+        settleMs: 3000,
+      });
+      if (push(dealsFromWindow(prods, "Meesho", url))) return bag;
+    } catch { /* next */ }
+  }
+
   try { if (push(await meeshoApiStrategy())) return bag; } catch { /* next */ }
   try { if (push(await meeshoHtmlStrategy("/deals"))) return bag; } catch { /* next */ }
   try { if (push(await meeshoHtmlStrategy("/lowest-price-products"))) return bag; } catch { /* next */ }
@@ -768,6 +827,25 @@ async function ajioStrategy4(): Promise<InternetDeal[]> {
 }
 
 export async function scrapeAjio(): Promise<InternetDeal[]> {
+  // Ajio hydrates products into __PRELOADED_STATE__ on category pages.
+  const AJIO_URLS = [
+    "https://www.ajio.com/c/men-tshirts",
+    "https://www.ajio.com/c/women-dresses",
+    "https://www.ajio.com/shop/sale",
+  ];
+  for (const url of AJIO_URLS) {
+    try {
+      const prods = await extractWindowProducts(url, {
+        imgHostHint: "ajio",
+        productUrlPrefix: "https://www.ajio.com",
+        maxProducts: 60,
+        settleMs: 3000,
+      });
+      const deals = dealsFromWindow(prods, "Ajio", url);
+      if (deals.length >= 3) return deals;
+    } catch { /* next */ }
+  }
+
   const result = await tryStrategies([
     { name: "ajio-home-html", fn: () => ajioStrategy4().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "ajio-category-api", fn: () => ajioStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
@@ -1022,6 +1100,26 @@ function parseShopsyHtml(html: string): InternetDeal[] {
 }
 
 export async function scrapeShopsy(): Promise<InternetDeal[]> {
+  // Shopsy is Flipkart's value-tier site; it hydrates products into
+  // __NEXT_DATA__ on category/listing pages.
+  const SHOPSY_URLS = [
+    "https://www.shopsy.in/mobiles-store",
+    "https://www.shopsy.in/fashion-store",
+    "https://www.shopsy.in/grocery-store",
+  ];
+  for (const url of SHOPSY_URLS) {
+    try {
+      const prods = await extractWindowProducts(url, {
+        imgHostHint: "rukminim",
+        productUrlPrefix: "https://www.shopsy.in",
+        maxProducts: 40,
+        settleMs: 3000,
+      });
+      const deals = dealsFromWindow(prods, "Shopsy", url);
+      if (deals.length >= 3) return deals;
+    } catch { /* next */ }
+  }
+
   const result = await tryStrategies([
     { name: "shopsy-navigate", fn: () => shopsyStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
     { name: "shopsy-offers", fn: () => shopsyStrategy2().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
