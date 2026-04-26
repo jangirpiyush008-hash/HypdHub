@@ -23,7 +23,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="light">
+      <head>
+        {/* Apply persisted theme before paint to avoid flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('hypd-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark')}else{document.documentElement.setAttribute('data-theme','light')}}catch(e){}`,
+          }}
+        />
+      </head>
       <body suppressHydrationWarning className="bg-surface font-body text-text antialiased">
         <AuthProvider>
           <div className="relative min-h-screen overflow-x-hidden">
