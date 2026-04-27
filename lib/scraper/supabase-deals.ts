@@ -128,13 +128,26 @@ export async function upsertDeals(deals: InternetDeal[], source: "scraped" | "te
       updated_at: new Date().toISOString(),
     }));
 
-    const { data, error } = await sb.from("deals").upsert(rows, {
-      onConflict: "product_url",
-      ignoreDuplicates: false,
-    }).select("id");
+    // The deals table doesn't have a unique constraint on product_url, so
+    // upsert(onConflict: "product_url") fails. Instead, when scraping a
+    // marketplace, delete the previous scraped batch for that marketplace
+    // and insert the fresh top-N. (Telegram source is left alone — it
+    // accumulates, not replaces.)
+    if (source === "scraped") {
+      const marketplaces = Array.from(new Set(rows.map((r) => r.marketplace)));
+      for (const mp of marketplaces) {
+        await sb
+          .from("deals")
+          .delete()
+          .eq("source", "scraped")
+          .eq("marketplace", mp);
+      }
+    }
+
+    const { data, error } = await sb.from("deals").insert(rows).select("id");
 
     if (error) {
-      console.error("[supabase-deals] Upsert error:", error.message);
+      console.error("[supabase-deals] Insert error:", error.message);
       return 0;
     }
     return data?.length ?? 0;
