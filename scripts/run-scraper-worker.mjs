@@ -13,6 +13,21 @@
  */
 // Run with: npx tsx scripts/run-scraper-worker.mjs
 // (tsx transparently transpiles the .ts imports below)
+
+// Playwright's CDP session occasionally emits a rejection AFTER a scraper
+// has already returned (e.g. a queued event arrives once the browser was
+// closed: "Target page, context or browser has been closed"). Node 20's
+// default unhandledRejection behaviour is to crash the process, which
+// would kill the whole parallel run mid-flight. Swallow + log instead.
+process.on("unhandledRejection", (err) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.warn("[worker] unhandled rejection (suppressed):", msg.slice(0, 200));
+});
+process.on("uncaughtException", (err) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.warn("[worker] uncaught exception (suppressed):", msg.slice(0, 200));
+});
+
 const started = Date.now();
 console.log("[worker] starting scrape run at", new Date().toISOString());
 
@@ -38,6 +53,18 @@ const SCRAPERS = [
 // Run all 6 marketplaces in parallel — independent Nova browsers, no
 // shared state. Cuts wall-clock time from ~3min sequential to ~30-60s.
 // Each marketplace is wrapped so one failure doesn't sink the run.
+// Also stream per-marketplace upserts to Supabase as soon as each one
+// finishes — so a later crash can't lose already-scraped data.
+async function persistOne(name, deals) {
+  if (!deals.length) return;
+  try {
+    const wrote = await upsertDeals(deals, "scraped");
+    console.log(`[worker] ${name}: upserted ${wrote} deals`);
+  } catch (e) {
+    console.error(`[worker] ${name}: upsert failed —`, e instanceof Error ? e.message : String(e));
+  }
+}
+
 const results = await Promise.all(
   SCRAPERS.map(async (s) => {
     const t0 = Date.now();
@@ -48,6 +75,7 @@ const results = await Promise.all(
       const deals = sorted.slice(0, 10);
       const ms = Date.now() - t0;
       console.log(`[worker] ${s.name}: ${deals.length} deals (kept from ${raw.length}, ${ms}ms)`);
+      await persistOne(s.name, deals);
       return { name: s.name, deals, ms, error: null };
     } catch (e) {
       const ms = Date.now() - t0;
@@ -63,12 +91,9 @@ const summary = Object.fromEntries(results.map((r) => [r.name, r.deals.length]))
 console.log("[worker] perMarketplace:", summary);
 console.log(`[worker] total: ${allDeals.length} deals`);
 
-if (allDeals.length) {
-  const wrote = await upsertDeals(allDeals, "scraped");
-  console.log(`[worker] upserted ${wrote} deals to Supabase`);
-} else {
-  console.log("[worker] no deals scraped — nothing to upsert");
-}
+// Per-marketplace upserts already happened above as each scraper finished.
+// Just log the final tally.
+if (!allDeals.length) console.log("[worker] no deals scraped — nothing was upserted");
 
 console.log(`[worker] done in ${Date.now() - started}ms`);
 process.exit(0);

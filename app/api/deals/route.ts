@@ -53,16 +53,23 @@ function cleanDeals(deals: InternetDeal[]): InternetDeal[] {
   });
 }
 
-function convertDealLinksToHypd(deals: InternetDeal[], creatorUsername: string): InternetDeal[] {
+function convertDealLinksToHypd(
+  deals: InternetDeal[],
+  creatorUsername: string,
+  creatorHypdUserId?: string,
+): InternetDeal[] {
   return deals.map((deal) => {
     const url = deal.originalUrl || deal.canonicalUrl;
     if (!url) return deal;
 
     try {
-      // generateHypdConversion now internally cleans competitor params via
-      // cleanUrlForHypdSync, so the expanded link will be free of wishlink
-      // / earnkaro / etc. junk.
-      const conversion = generateHypdConversion(url, creatorUsername);
+      // Pass creatorHypdUserId so af_siteid is THIS creator's id, not the
+      // generic HYPD pool fallback. That's the part that makes every
+      // logged-in creator's deal link unique to them — sales attribute
+      // back to the right creator even if HYPD's cookie session expires.
+      const conversion = generateHypdConversion(url, creatorUsername, {
+        creatorHypdUserId,
+      });
       if (!conversion || conversion.marketplace === "Unsupported") return deal;
 
       const hypdLink = conversion.expandedLink || deal.originalUrl;
@@ -71,7 +78,9 @@ function convertDealLinksToHypd(deals: InternetDeal[], creatorUsername: string):
       let convertedCategoryUrl = deal.categoryUrl;
       if (deal.categoryUrl && deal.categoryUrl !== url) {
         try {
-          const catConversion = generateHypdConversion(deal.categoryUrl, creatorUsername);
+          const catConversion = generateHypdConversion(deal.categoryUrl, creatorUsername, {
+            creatorHypdUserId,
+          });
           if (catConversion && catConversion.marketplace !== "Unsupported") {
             convertedCategoryUrl = catConversion.expandedLink || deal.categoryUrl;
           }
@@ -193,10 +202,17 @@ export async function GET(request: NextRequest) {
   // real product_id) instead of the hardcoded generic siteid the sync
   // generator falls back to. Per-creator cache + bounded concurrency keeps
   // this fast on repeat loads.
+  // Per-creator unique siteid:
+  //   1. If we have live HYPD cookies → call HYPD's deeplink API (real
+  //      af_siteid + clickid + product_id stamped on every link).
+  //   2. If logged in but cookies expired → still embed creator.hypdUserId
+  //      as af_siteid in the synchronously-generated link so attribution
+  //      lands on this creator, not the generic pool.
+  //   3. Anonymous → generic pool fallback (creatorHypdUserId undefined).
   const allDeals =
     creator && creatorCookies.length > 0
       ? await convertDealsForCreator(withCategory, creator, creatorCookies)
-      : convertDealLinksToHypd(withCategory, creatorUsername);
+      : convertDealLinksToHypd(withCategory, creatorUsername, creator?.hypdUserId);
 
   const filteredDeals = allDeals.filter((deal) => {
     const marketplaceMatch = !marketplace || marketplace === "All" || deal.marketplace === marketplace;
