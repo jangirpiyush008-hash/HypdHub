@@ -11,12 +11,8 @@
  *   - NEXT_PUBLIC_SUPABASE_URL
  *   - SUPABASE_SERVICE_ROLE_KEY
  */
-import { register } from "node:module";
-import { pathToFileURL } from "node:url";
-
-// Load TS source via tsx loader so we don't need a separate build step.
-register("tsx/esm", pathToFileURL("./"));
-
+// Run with: npx tsx scripts/run-scraper-worker.mjs
+// (tsx transparently transpiles the .ts imports below)
 const started = Date.now();
 console.log("[worker] starting scrape run at", new Date().toISOString());
 
