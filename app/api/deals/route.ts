@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchHypdProducts } from "@/lib/integrations/hypd";
 import { fetchTelegramDeals } from "@/lib/integrations/telegram";
-import { scrapeMarketplaceDeals } from "@/lib/integrations/marketplace-scraper";
 import { getDealHistorySummary } from "@/lib/runtime/deal-history";
 import { ensureAutomaticRefresh, getRefreshStatus } from "@/lib/runtime/refresh-state";
 import { InternetDeal } from "@/lib/types";
@@ -141,7 +140,10 @@ export function clearDealsCache() {
 export async function GET(request: NextRequest) {
   const now = Date.now();
 
-  await ensureAutomaticRefresh("api-deals");
+  // Fire-and-forget Telegram refresh — don't block the response on it.
+  // Marketplace scraping has moved to GitHub Actions (hourly cron) and
+  // is read from Supabase below, so the page no longer waits on Nova.
+  void ensureAutomaticRefresh("api-deals").catch(() => {});
   const { searchParams } = new URL(request.url);
   const marketplace = searchParams.get("marketplace");
   const minPrice = Number(searchParams.get("minPrice") ?? "0");
@@ -158,10 +160,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(cached.data);
   }
 
-  // PRIMARY SOURCE: Supabase database
-  const dbDeals = await fetchDealsFromDb();
-
-  const [telegram, history, refresh, hypd, scraped] = await Promise.all([
+  // PRIMARY SOURCE: Supabase database (populated by the GH Actions
+  // scraper worker on an hourly cron). Reading from DB is fast — no
+  // Nova boot, no IP-blocked marketplace requests on the request path.
+  const [dbDeals, telegram, history, refresh, hypd] = await Promise.all([
+    fetchDealsFromDb(),
     fetchTelegramDeals().catch(() => ({ deals: [] as InternetDeal[], topDealsByMarketplace: {} as Record<string, InternetDeal[]> })),
     getDealHistorySummary(),
     getRefreshStatus(),
@@ -174,8 +177,8 @@ export async function GET(request: NextRequest) {
       stats: { sales: null, orders: null, withdrawable: null, pending: null },
       lastSyncedAt: null as string | null
     })),
-    scrapeMarketplaceDeals().catch(() => ({ deals: [] as InternetDeal[], sources: [] as string[], scrapedAt: new Date().toISOString() }))
   ]);
+  const scraped = { deals: [] as InternetDeal[], sources: ["GitHub Actions worker (hourly)"], scrapedAt: new Date().toISOString() };
 
   const hypdDeals = hypdProductsToDeals(hypd);
 

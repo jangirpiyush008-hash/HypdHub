@@ -16,17 +16,52 @@
 const started = Date.now();
 console.log("[worker] starting scrape run at", new Date().toISOString());
 
-const { scrapeAllMarketplaces } = await import("../lib/scraper/index.ts");
+const {
+  scrapeMyntra,
+  scrapeFlipkart,
+  scrapeAjio,
+  scrapeNykaa,
+  scrapeShopsy,
+  scrapeMeesho,
+} = await import("../lib/scraper/marketplace-agents.ts");
 const { upsertDeals } = await import("../lib/scraper/supabase-deals.ts");
 
-const result = await scrapeAllMarketplaces({ force: true });
-console.log("[worker] scrape complete:", {
-  total: result.deals?.length ?? 0,
-  perMarketplace: result.perMarketplace,
-});
+const SCRAPERS = [
+  { name: "Myntra", fn: scrapeMyntra },
+  { name: "Flipkart", fn: scrapeFlipkart },
+  { name: "Meesho", fn: scrapeMeesho },
+  { name: "Ajio", fn: scrapeAjio },
+  { name: "Nykaa", fn: scrapeNykaa },
+  { name: "Shopsy", fn: scrapeShopsy },
+];
 
-if (result.deals?.length) {
-  const wrote = await upsertDeals(result.deals, "scraped");
+// Run all 6 marketplaces in parallel — independent Nova browsers, no
+// shared state. Cuts wall-clock time from ~3min sequential to ~30-60s.
+// Each marketplace is wrapped so one failure doesn't sink the run.
+const results = await Promise.all(
+  SCRAPERS.map(async (s) => {
+    const t0 = Date.now();
+    try {
+      const deals = await s.fn();
+      const ms = Date.now() - t0;
+      console.log(`[worker] ${s.name}: ${deals.length} deals (${ms}ms)`);
+      return { name: s.name, deals, ms, error: null };
+    } catch (e) {
+      const ms = Date.now() - t0;
+      const error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error(`[worker] ${s.name} FAILED in ${ms}ms — ${error}`);
+      return { name: s.name, deals: [], ms, error };
+    }
+  })
+);
+
+const allDeals = results.flatMap((r) => r.deals);
+const summary = Object.fromEntries(results.map((r) => [r.name, r.deals.length]));
+console.log("[worker] perMarketplace:", summary);
+console.log(`[worker] total: ${allDeals.length} deals`);
+
+if (allDeals.length) {
+  const wrote = await upsertDeals(allDeals, "scraped");
   console.log(`[worker] upserted ${wrote} deals to Supabase`);
 } else {
   console.log("[worker] no deals scraped — nothing to upsert");
