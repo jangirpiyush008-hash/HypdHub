@@ -60,7 +60,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/login"
-              className="rounded-lg bg-surface-card px-6 py-3 font-headline text-sm font-bold text-text transition-colors hover:bg-surface-high"
+              className="rounded-lg border border-outline bg-surface-card px-6 py-3 font-headline text-sm font-bold text-text transition-colors hover:bg-surface-high"
             >
               Login with HYPD
             </Link>

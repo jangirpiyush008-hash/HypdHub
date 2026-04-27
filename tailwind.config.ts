@@ -40,16 +40,16 @@ const config: Config = {
       },
       boxShadow: {
         ambient: "0 24px 80px rgba(0, 0, 0, 0.28)",
-        glow: "0 0 20px rgba(255, 255, 255, 0.16)",
-        "glow-red": "0 0 20px rgba(255, 255, 255, 0.1)"
+        glow: "0 8px 24px rgba(233, 64, 87, 0.28)",
+        "glow-red": "0 8px 24px rgba(233, 64, 87, 0.32)"
       },
       backgroundImage: {
         "hero-glow":
           "radial-gradient(circle at top, rgba(255,255,255,0.12), transparent 38%), radial-gradient(circle at 20% 80%, rgba(120,120,130,0.12), transparent 32%)",
         "cta-gradient":
-          "linear-gradient(135deg, #fafafa 0%, #d4d4d8 100%)",
+          "linear-gradient(135deg, #fb6c23 0%, #e94057 50%, #8a2387 100%)",
         "hypd-gradient":
-          "linear-gradient(20deg, #fafafa, #d4d4d8, #71717a)",
+          "linear-gradient(20deg, #8a2387, #e94057, #f27121)",
         "card-gradient":
           "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))"
       }
