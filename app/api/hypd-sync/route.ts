@@ -16,7 +16,7 @@
  * time the route is called. (TODO: add a worker hook once we figure
  * out how to share the upstream HYPD session globally.)
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { fetchCurrentHypdCreator, getStoredHypdCookies } from "@/lib/hypd-server";
 import { fetchHypdCatalogRaw, hypdProductsToDeals } from "@/lib/integrations/hypd";
 import { upsertDeals } from "@/lib/scraper/supabase-deals";
@@ -24,7 +24,8 @@ import { upsertDeals } from "@/lib/scraper/supabase-deals";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const debug = new URL(request.url).searchParams.get("debug") === "1";
   const cookies = await getStoredHypdCookies();
   if (cookies.length === 0) {
     return NextResponse.json(
@@ -49,6 +50,25 @@ export async function POST() {
     });
   }
 
+  // Debug mode: dump first 2 raw products + all top-level keys so we can
+  // see HYPD's actual field names and tune the parser.
+  if (debug) {
+    const sample = raw.slice(0, 2);
+    const allKeys = new Set<string>();
+    for (const item of raw) {
+      if (item && typeof item === "object") {
+        for (const k of Object.keys(item as Record<string, unknown>)) allKeys.add(k);
+      }
+    }
+    return NextResponse.json({
+      ok: true,
+      debug: true,
+      rawCount: raw.length,
+      uniqueKeys: Array.from(allKeys).sort(),
+      sample,
+    });
+  }
+
   const deals = hypdProductsToDeals(creator.hypdUsername, raw);
   const written = deals.length ? await upsertDeals(deals, "hypd") : 0;
 
@@ -69,6 +89,6 @@ export async function POST() {
 }
 
 // Allow GET too for easy browser-bar triggering
-export async function GET() {
-  return POST();
+export async function GET(request: NextRequest) {
+  return POST(request);
 }
