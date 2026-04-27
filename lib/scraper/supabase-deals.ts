@@ -108,7 +108,7 @@ export async function fetchDealsByMarketplace(marketplace: string): Promise<Inte
 /**
  * Upsert scraped/telegram deals into Supabase.
  */
-export async function upsertDeals(deals: InternetDeal[], source: "scraped" | "telegram"): Promise<number> {
+export async function upsertDeals(deals: InternetDeal[], source: "scraped" | "telegram" | "hypd"): Promise<number> {
   try {
     const sb = createServerSupabase();
     const rows = deals.map((d) => ({
@@ -133,13 +133,16 @@ export async function upsertDeals(deals: InternetDeal[], source: "scraped" | "te
     // marketplace, delete the previous scraped batch for that marketplace
     // and insert the fresh top-N. (Telegram source is left alone — it
     // accumulates, not replaces.)
-    if (source === "scraped") {
+    // For 'scraped' and 'hypd' sources, delete the previous batch for
+    // each marketplace so we don't accumulate stale entries. Telegram is
+    // append-only because it tracks distinct mentions over time.
+    if (source === "scraped" || source === "hypd") {
       const marketplaces = Array.from(new Set(rows.map((r) => r.marketplace)));
       for (const mp of marketplaces) {
         await sb
           .from("deals")
           .delete()
-          .eq("source", "scraped")
+          .eq("source", source)
           .eq("marketplace", mp);
       }
     }

@@ -1,5 +1,6 @@
 import { CATALOG_URL, ENTITY_URL, ORDER_URL } from "@/lib/auth";
 import { fetchCurrentHypdCreator, getStoredHypdCookies, UpstreamCookie } from "@/lib/hypd-server";
+import { InternetDeal } from "@/lib/types";
 
 type HypdProduct = {
   id: string;
@@ -109,6 +110,141 @@ function pickImage(value: unknown): string | null {
   }
 
   return null;
+}
+
+/**
+ * Convert HYPD's raw hot-selling-catalogs payload into InternetDeal[].
+ *
+ * HYPD aggregates products from Flipkart / Myntra / Shopsy / etc. and
+ * exposes them through their authenticated catalog API. Field names are
+ * not strictly documented, so we read defensively from common aliases
+ * (marketplace / source_marketplace / source_brand_name / store_name)
+ * to classify each product back to its source marketplace.
+ *
+ * Result deals link to https://www.hypd.store/<creator>/product/<id> —
+ * which is HYPD's affiliate-tracked URL that redirects to the actual
+ * marketplace with proper attribution baked in. Cleaner than scraping
+ * because we keep HYPD's tracking pipeline intact.
+ */
+const KNOWN_MARKETPLACES: InternetDeal["marketplace"][] = [
+  "Myntra", "Flipkart", "Meesho", "Ajio", "Nykaa", "Shopsy",
+];
+
+function classifyMarketplace(raw: unknown): InternetDeal["marketplace"] {
+  const candidate = pickString(
+    (raw as Record<string, unknown>).marketplace,
+    (raw as Record<string, unknown>).source_marketplace,
+    (raw as Record<string, unknown>).source_brand,
+    (raw as Record<string, unknown>).store,
+    (raw as Record<string, unknown>).store_name,
+    (raw as Record<string, unknown>).source,
+  ).toLowerCase();
+  for (const m of KNOWN_MARKETPLACES) {
+    if (candidate.includes(m.toLowerCase())) return m;
+  }
+  // Heuristic: source URL host
+  const sourceUrl = pickString(
+    (raw as Record<string, unknown>).source_url,
+    (raw as Record<string, unknown>).original_url,
+    (raw as Record<string, unknown>).external_url,
+    (raw as Record<string, unknown>).redirect_url,
+  );
+  if (sourceUrl) {
+    if (sourceUrl.includes("flipkart")) return "Flipkart";
+    if (sourceUrl.includes("myntra")) return "Myntra";
+    if (sourceUrl.includes("meesho")) return "Meesho";
+    if (sourceUrl.includes("ajio")) return "Ajio";
+    if (sourceUrl.includes("nykaa")) return "Nykaa";
+    if (sourceUrl.includes("shopsy")) return "Shopsy";
+  }
+  return "HYPD";
+}
+
+export function hypdProductsToDeals(
+  creatorUsername: string,
+  productsPayload: unknown,
+): InternetDeal[] {
+  const now = new Date().toISOString();
+  const result: InternetDeal[] = [];
+  asArray(productsPayload).forEach((item, idx) => {
+    const deal = ((): InternetDeal | null => {
+      if (!item || typeof item !== "object") return null;
+      const product = item as Record<string, unknown>;
+      const id = pickString(product.id, product._id);
+      if (!id) return null;
+
+      const title = pickString(product.name, product.title, product.product_name);
+      if (!title) return null;
+
+      const marketplace = classifyMarketplace(product);
+      const currentPrice = pickNumber(
+        product.sale_price, product.price, product.discounted_price, product.current_price,
+      ) || null;
+      const originalPrice = pickNumber(
+        product.mrp, product.original_price, product.list_price,
+      ) || null;
+      const discountPercent =
+        currentPrice && originalPrice && originalPrice > currentPrice
+          ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
+          : pickNumber(product.discount_percent, product.discount) || null;
+
+      const imageUrl =
+        pickImage(product.images) ?? pickImage(product.image) ?? pickImage(product.defaultImage);
+
+      const productUrl = creatorUsername
+        ? `https://www.hypd.store/${creatorUsername}/product/${id}`
+        : pickString(product.product_url, product.url) || null;
+
+      const brandName = pickString(
+        product.brand_name,
+        (product.brand as Record<string, unknown> | undefined)?.name,
+      ) || "Brand";
+
+      return {
+        id: `hypd-${id}`,
+        marketplace,
+        canonicalUrl: productUrl ?? "",
+        originalUrl: productUrl ?? "",
+        title,
+        category: brandName,
+        imageUrl,
+        currentPrice,
+        originalPrice,
+        discountPercent,
+        mentionsCount: 0,
+        channelsCount: 1,
+        channelNames: ["HYPD Catalog"],
+        firstSeenAt: now,
+        lastSeenAt: now,
+        freshnessHours: 0,
+        score: 100 - idx, // preserve HYPD's own ranking order
+        validationStatus: "validated" as const,
+        stockStatus: "in_stock" as const,
+        sourceEvidence: ["HYPD hot-selling catalog"],
+        confidenceScore: 90,
+      } satisfies InternetDeal;
+    })();
+    if (deal) result.push(deal);
+  });
+  return result;
+}
+
+/**
+ * Server-side helper for the sync route + worker. Calls HYPD's
+ * authenticated hot-selling-catalogs endpoint with the given cookies and
+ * returns the raw products array, which can then be passed into
+ * hypdProductsToDeals().
+ */
+export async function fetchHypdCatalogRaw(upstreamCookies: UpstreamCookie[]): Promise<unknown[]> {
+  if (upstreamCookies.length === 0) return [];
+  const response = await hypdFetch(
+    `${ORDER_URL}/api/hot-selling-catalogs`,
+    { method: "GET" },
+    upstreamCookies,
+  );
+  if (!response.ok) return [];
+  const payload = await response.json().catch(() => null);
+  return asArray(payload?.payload ?? payload?.data ?? payload);
 }
 
 function normalizeHotSellingProducts(
