@@ -237,14 +237,50 @@ export function hypdProductsToDeals(
  */
 export async function fetchHypdCatalogRaw(upstreamCookies: UpstreamCookie[]): Promise<unknown[]> {
   if (upstreamCookies.length === 0) return [];
-  const response = await hypdFetch(
+
+  // Step 1: get hot-selling catalog IDs + order counts.
+  const ordersResponse = await hypdFetch(
     `${ORDER_URL}/api/hot-selling-catalogs`,
     { method: "GET" },
     upstreamCookies,
   );
-  if (!response.ok) return [];
-  const payload = await response.json().catch(() => null);
-  return asArray(payload?.payload ?? payload?.data ?? payload);
+  if (!ordersResponse.ok) return [];
+  const ordersPayload = await ordersResponse.json().catch(() => null);
+  const idsAndOrders = asArray(ordersPayload?.payload ?? ordersPayload);
+  const catalogIds = idsAndOrders
+    .map((item) =>
+      item && typeof item === "object" ? pickString((item as Record<string, unknown>).id) : "",
+    )
+    .filter(Boolean);
+  if (!catalogIds.length) return [];
+
+  // Step 2: hydrate the IDs into full product records via the catalog
+  // /basic endpoint. HYPD batches up to ~50 IDs per request.
+  const basicResponse = await hypdFetch(
+    `${CATALOG_URL}/api/v2/app/catalog/basic?${catalogIds
+      .map((id) => `id=${encodeURIComponent(id)}`)
+      .join("&")}`,
+    { method: "GET" },
+    upstreamCookies,
+  );
+  const basicPayload = await basicResponse.json().catch(() => null);
+  const products = asArray(basicPayload?.payload ?? basicPayload);
+
+  // Merge order counts back onto each product so the parser can use them
+  // for ranking + freshness signals.
+  const orderCount = new Map<string, number>();
+  for (const item of idsAndOrders) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    const id = pickString(r.id);
+    if (id) orderCount.set(id, pickNumber(r.number_of_orders));
+  }
+  return products.map((p) => {
+    if (!p || typeof p !== "object") return p;
+    const obj = p as Record<string, unknown>;
+    const id = pickString(obj.id, obj._id);
+    return { ...obj, number_of_orders: orderCount.get(id) ?? 0 };
+  });
 }
 
 function normalizeHotSellingProducts(
