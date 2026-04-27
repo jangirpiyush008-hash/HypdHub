@@ -255,7 +255,12 @@ export async function scrapeMyntra(): Promise<InternetDeal[]> {
     "https://www.myntra.com/women-kurtas",
     "https://www.myntra.com/deals",
   ];
+  // Accumulate across all URLs — one URL may return 4 deals, another 6,
+  // and we want 10 total. Dedupe by product URL (or title key fallback).
+  const accum: InternetDeal[] = [];
+  const seen = new Set<string>();
   for (const url of MYNTRA_URLS) {
+    if (accum.length >= 10) break;
     try {
       const prods = await extractWindowProducts(url, {
         imgHostHint: "myntassets",
@@ -263,10 +268,16 @@ export async function scrapeMyntra(): Promise<InternetDeal[]> {
         maxProducts: 60,
         settleMs: 3500,
       });
-      const deals = dealsFromWindow(prods, "Myntra", url);
-      if (deals.length >= 5) return deals;
+      for (const d of dealsFromWindow(prods, "Myntra", url)) {
+        const key = (d.originalUrl || d.title.toLowerCase()).split("?")[0];
+        if (seen.has(key)) continue;
+        seen.add(key);
+        accum.push(d);
+        if (accum.length >= 10) break;
+      }
     } catch { /* next */ }
   }
+  if (accum.length >= 3) return accum.slice(0, 10);
 
   const result = await tryStrategies([
     { name: "myntra-nova-html", fn: () => myntraStrategy5().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
@@ -434,8 +445,13 @@ export async function scrapeFlipkart(): Promise<InternetDeal[]> {
     "https://www.flipkart.com/search?q=mobile",
     "https://www.flipkart.com/search?q=tshirt",
     "https://www.flipkart.com/search?q=headphone",
+    "https://www.flipkart.com/search?q=watch",
+    "https://www.flipkart.com/search?q=shoes",
   ];
+  const fkAccum: InternetDeal[] = [];
+  const fkSeen = new Set<string>();
   for (const url of FLIPKART_URLS) {
+    if (fkAccum.length >= 10) break;
     try {
       const products = await extractWindowProducts(url, {
         imgHostHint: "rukminim",
@@ -443,10 +459,16 @@ export async function scrapeFlipkart(): Promise<InternetDeal[]> {
         maxProducts: 60,
         settleMs: 3000,
       });
-      const deals = dealsFromWindow(products, "Flipkart", url);
-      if (deals.length >= 3) return deals;
+      for (const d of dealsFromWindow(products, "Flipkart", url)) {
+        const key = (d.originalUrl || d.title.toLowerCase()).split("?")[0];
+        if (fkSeen.has(key)) continue;
+        fkSeen.add(key);
+        fkAccum.push(d);
+        if (fkAccum.length >= 10) break;
+      }
     } catch { /* try next */ }
   }
+  if (fkAccum.length >= 3) return fkAccum.slice(0, 10);
 
   const result = await tryStrategies([
     { name: "flipkart-navigate", fn: () => flipkartStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },
@@ -1132,8 +1154,13 @@ export async function scrapeShopsy(): Promise<InternetDeal[]> {
     "https://www.shopsy.in/search?q=mobile",
     "https://www.shopsy.in/search?q=tshirt",
     "https://www.shopsy.in/search?q=headphone",
+    "https://www.shopsy.in/search?q=watch",
+    "https://www.shopsy.in/search?q=shoes",
   ];
+  const spAccum: InternetDeal[] = [];
+  const spSeen = new Set<string>();
   for (const url of SHOPSY_URLS) {
+    if (spAccum.length >= 10) break;
     try {
       const prods = await extractWindowProducts(url, {
         imgHostHint: "rukminim",
@@ -1141,10 +1168,16 @@ export async function scrapeShopsy(): Promise<InternetDeal[]> {
         maxProducts: 40,
         settleMs: 3000,
       });
-      const deals = dealsFromWindow(prods, "Shopsy", url);
-      if (deals.length >= 3) return deals;
+      for (const d of dealsFromWindow(prods, "Shopsy", url)) {
+        const key = (d.originalUrl || d.title.toLowerCase()).split("?")[0];
+        if (spSeen.has(key)) continue;
+        spSeen.add(key);
+        spAccum.push(d);
+        if (spAccum.length >= 10) break;
+      }
     } catch { /* next */ }
   }
+  if (spAccum.length >= 3) return spAccum.slice(0, 10);
 
   const result = await tryStrategies([
     { name: "shopsy-navigate", fn: () => shopsyStrategy1().then(deals => ({ ok: deals.length > 0, status: 200, text: JSON.stringify(deals), headers: {} })) },

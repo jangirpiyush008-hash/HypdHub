@@ -42,9 +42,12 @@ const results = await Promise.all(
   SCRAPERS.map(async (s) => {
     const t0 = Date.now();
     try {
-      const deals = await s.fn();
+      const raw = await s.fn();
+      // Top-10 per marketplace (highest discount first if available)
+      const sorted = raw.slice().sort((a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0));
+      const deals = sorted.slice(0, 10);
       const ms = Date.now() - t0;
-      console.log(`[worker] ${s.name}: ${deals.length} deals (${ms}ms)`);
+      console.log(`[worker] ${s.name}: ${deals.length} deals (kept from ${raw.length}, ${ms}ms)`);
       return { name: s.name, deals, ms, error: null };
     } catch (e) {
       const ms = Date.now() - t0;

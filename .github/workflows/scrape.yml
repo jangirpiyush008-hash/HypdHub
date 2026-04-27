@@ -1,9 +1,10 @@
 name: Scrape marketplaces
 
 on:
-  # Hourly cron — GitHub may delay by a few minutes under load
+  # Every 2 hours — refresh window matches the website's expectation.
+  # GitHub may delay scheduled runs by a few minutes under load.
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 */2 * * *"
   # Manual trigger from the Actions tab
   workflow_dispatch:
 
