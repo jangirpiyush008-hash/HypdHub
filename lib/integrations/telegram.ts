@@ -343,7 +343,11 @@ async function buildTelegramDeals() {
     };
   }
 
-  await withTimeout(client.connect(), 4_000, "telegram-connect");
+  // gramJS's connect() does TCP + DH key exchange + authorize. TCP alone
+  // is fast (~250ms from GH runners), but the auth handshake can stall
+  // for several seconds on first run after a session was idle. The
+  // previous 4s cap fired mid-handshake, killing every Telegram run.
+  await withTimeout(client.connect(), 30_000, "telegram-connect");
 
   try {
     const grouped = new Map<
