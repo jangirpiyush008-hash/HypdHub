@@ -95,27 +95,31 @@ console.log(`[worker] total: ${allDeals.length} deals`);
 if (!allDeals.length) console.log("[worker] no deals scraped — nothing was upserted");
 
 // ─────────────────────────────────────────────────────────────────
-// Telegram pipeline — primary source for Flipkart / Myntra / Shopsy
-// where datacenter IPs (Railway, GH Actions) get blocked by Akamai.
-// Telegram channels post product URLs continuously and don't require
-// a clean IP. The existing fetchTelegramDeals() reads ~34 configured
-// Indian deal channels, parses marketplace + price + image, validates
-// the URL through HYPD's marketplace detection, and returns
-// InternetDeal[]. We just have to upsert them with source='telegram'.
+// Telegram pipeline — primary source for Flipkart / Myntra / Shopsy.
+//
+// We use the t.me/s/<handle> public preview pages instead of the
+// MTProto user-API. Reason: MTProto auth handshakes hang silently
+// when initiated from GitHub Actions runner IPs (TCP + LAYER 198
+// succeed, then 30s of dead silence; reproduced across TCPFull port
+// 80 and useWSS port 443). t.me/s/ serves the same content as plain
+// HTTP HTML, no auth, no DC negotiation, works from every cloud IP.
+//
+// Trade-off: only public-handle channels are reachable this way
+// (no +invite-hash channels). That's fine — the strongest Indian
+// deal posters all publish public handles for SEO.
 // ─────────────────────────────────────────────────────────────────
-if (process.env.TELEGRAM_SESSION_STRING) {
+{
   const t0 = Date.now();
   try {
-    const { fetchTelegramDeals } = await import("../lib/integrations/telegram.ts");
-    const tg = await fetchTelegramDeals(true);
+    const { fetchTelegramWebDeals } = await import("../lib/scraper/telegram-web.ts");
+    const tgDeals = await fetchTelegramWebDeals();
     const ms = Date.now() - t0;
-    console.log(`[worker] Telegram: fetched ${tg.deals.length} deals in ${ms}ms`);
-    if (tg.deals.length) {
-      const wrote = await upsertDeals(tg.deals, "telegram");
+    console.log(`[worker] Telegram: fetched ${tgDeals.length} deals in ${ms}ms`);
+    if (tgDeals.length) {
+      const wrote = await upsertDeals(tgDeals, "telegram");
       console.log(`[worker] Telegram: upserted ${wrote} deals`);
     }
-    // Per-marketplace breakdown so we can see Flipkart/Myntra/Shopsy coverage
-    const byMp = tg.deals.reduce((acc, d) => {
+    const byMp = tgDeals.reduce((acc, d) => {
       acc[d.marketplace] = (acc[d.marketplace] || 0) + 1;
       return acc;
     }, {});
@@ -123,8 +127,6 @@ if (process.env.TELEGRAM_SESSION_STRING) {
   } catch (e) {
     console.error("[worker] Telegram fetch failed:", e instanceof Error ? e.message : String(e));
   }
-} else {
-  console.log("[worker] TELEGRAM_SESSION_STRING missing — skipping Telegram pull");
 }
 
 console.log(`[worker] done in ${Date.now() - started}ms`);
