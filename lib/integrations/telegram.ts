@@ -101,8 +101,19 @@ function getTelegramClient() {
     return null;
   }
 
+  // useWSS: route over WebSocket Secure (TLS, port 443) instead of the
+  // default TCPFull on port 80. GitHub Actions runner IPs hit Telegram
+  // via cloud egress where port-80 MTProto frames sometimes get silently
+  // dropped mid-handshake — TCP connects fine, LAYER negotiates, then
+  // the auth payload never returns and the client hangs until timeout.
+  // Port 443 + WSS goes through standard HTTPS pipes and works reliably
+  // from cloud IPs that block or rate-limit raw MTProto.
+  // connectionRetries: bump from 1 to 5 so a transient handshake stall
+  // doesn't kill the whole worker run.
   return new TelegramClient(new StringSession(session), apiId, apiHash, {
-    connectionRetries: 1
+    connectionRetries: 5,
+    useWSS: true,
+    timeout: 25,
   });
 }
 
