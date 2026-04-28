@@ -33,7 +33,12 @@ type SupportedMarketplace = InternetDeal["marketplace"];
 const REFRESH_WINDOW_HOURS = 2;
 const REFRESH_WINDOW_MS = REFRESH_WINDOW_HOURS * 60 * 60 * 1000;
 const MESSAGE_LIMIT_PER_CHANNEL = 35;
-const TELEGRAM_FETCH_TIMEOUT_MS = 5_000;
+// Total budget for the full Telegram fetch path (connect → iterate every
+// readable channel → parse URLs → validate). 34 channels at ~300-800ms
+// each plus per-deal validation easily blows past a few seconds, so the
+// previous 5_000ms cap was guaranteeing zero deals. Give it a real
+// budget that fits inside the worker's 25-minute job timeout.
+const TELEGRAM_FETCH_TIMEOUT_MS = 180_000;
 
 const telegramChannels: TelegramChannelSource[] = [
   { id: 1, url: "https://t.me/+kTvbwlaPbH1mM2E1", handle: null, title: "Offerzone 3.0", access: "readable_now", marketplaceFocus: ["Myntra", "Flipkart", "Amazon"] },
@@ -514,7 +519,15 @@ export async function fetchTelegramDeals(forceRefresh = false) {
 
     global.__telegramDealCache = nextCache;
     return nextCache;
-  } catch {
+  } catch (err) {
+    // Don't swallow silently — log the real reason. The previous
+    // empty-catch hid the 5s-timeout bug that made deals come back as 0
+    // for a long time. Now we'll see "telegram-deals timed out" or auth
+    // errors directly in the worker log.
+    console.warn(
+      "[telegram] fetch failed:",
+      err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+    );
     const fallback = cached
       ? {
           ...cached,

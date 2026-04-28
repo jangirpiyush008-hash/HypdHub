@@ -36,22 +36,17 @@ const {
   scrapeNykaa,
   scrapeMeesho,
 } = await import("../lib/scraper/marketplace-agents.ts");
-const { scrapeEarnkaro, scrapeCashkaro } = await import("../lib/scraper/aggregator-agents.ts");
 const { upsertDeals } = await import("../lib/scraper/supabase-deals.ts");
 
 // Nova-on-GitHub-Actions can only reliably scrape marketplaces whose CDNs
 // don't fingerprint datacenter IPs. Flipkart, Myntra, and Shopsy all sit
 // behind Akamai/DataDome and consistently return challenge pages from GH
-// runners. We source those via aggregator scrapes (plain HTTP, SEO-friendly
-// targets) and the Telegram pipeline below — both invisible at the UI layer.
+// runners. Those three are sourced exclusively via the Telegram pipeline
+// below — invisible at the UI layer once /api/deals strips source-evidence.
 const SCRAPERS = [
   { name: "Meesho", fn: scrapeMeesho },
   { name: "Ajio", fn: scrapeAjio },
   { name: "Nykaa", fn: scrapeNykaa },
-  // Aggregators surface deals for the IP-blocked marketplaces (Flipkart,
-  // Myntra, Shopsy) without needing Playwright or residential IPs.
-  { name: "EarnKaro", fn: scrapeEarnkaro },
-  { name: "Cashkaro", fn: scrapeCashkaro },
 ];
 
 // Run all 6 marketplaces in parallel — independent Nova browsers, no
