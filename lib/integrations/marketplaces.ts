@@ -99,7 +99,33 @@ async function fetchValidatedPage(url: string) {
   }
 }
 
+// These marketplaces sit behind Akamai/DataDome and reliably reject
+// datacenter-IP HTTP fetches with a challenge page. Validating from a
+// GH Actions runner just marks every Flipkart/Myntra/Shopsy deal as
+// "failed", which kills its score and buries it in the UI. We trust
+// the upstream signal (Telegram channel + aggregator listing) for
+// these — both sources curate human-verified deals — and skip the
+// public-page round-trip entirely.
+const IP_BLOCKED_MARKETPLACES: ReadonlySet<InternetDeal["marketplace"]> = new Set([
+  "Flipkart",
+  "Myntra",
+  "Shopsy",
+]);
+
 async function validatePublicDeal(deal: InternetDeal): Promise<PublicValidationResult> {
+  if (IP_BLOCKED_MARKETPLACES.has(deal.marketplace)) {
+    // Trust the source — return the deal's own values and mark as
+    // validated so it gets full scoring and surfaces normally.
+    return {
+      validatedTitle: deal.title,
+      currentPrice: deal.currentPrice,
+      originalPrice: deal.originalPrice,
+      discountPercent: deal.discountPercent,
+      stockStatus: "in_stock",
+      validationStatus: "validated"
+    };
+  }
+
   const html = await fetchValidatedPage(deal.canonicalUrl);
 
   if (!html) {

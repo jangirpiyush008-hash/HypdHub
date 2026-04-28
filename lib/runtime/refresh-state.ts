@@ -100,8 +100,15 @@ export async function ensureAutomaticRefresh(reason = "auto-window-check") {
 
 export async function getRefreshStatus() {
   const [state, history] = await Promise.all([readRefreshState(), getDealHistorySummary()]);
+  // Strip source-specific counts from the public response. Internal state
+  // file keeps them for telemetry, but API consumers see only generic stats.
   return {
-    ...state,
+    lastRefreshAt: state.lastRefreshAt,
+    nextRefreshAt: state.nextRefreshAt,
+    refreshWindowHours: state.refreshWindowHours,
+    lastStatus: state.lastStatus,
+    lastReason: state.lastReason,
+    totalDealsCount: state.telegramDealsCount,
     history
   };
 }

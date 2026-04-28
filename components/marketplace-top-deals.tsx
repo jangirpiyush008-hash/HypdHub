@@ -8,8 +8,7 @@ type DealsApiResponse = {
   refreshWindowHours: number;
   isLoggedIn?: boolean;
   creatorUsername?: string;
-  telegramDealsCount: number;
-  validatedDealsCount: number;
+  totalDealsCount?: number;
   history: {
     lastRefreshAt: string | null;
     trackedDeals: number;

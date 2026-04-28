@@ -131,32 +131,18 @@ const KNOWN_MARKETPLACES: InternetDeal["marketplace"][] = [
 ];
 
 function classifyMarketplace(raw: unknown): InternetDeal["marketplace"] {
-  const candidate = pickString(
-    (raw as Record<string, unknown>).marketplace,
-    (raw as Record<string, unknown>).source_marketplace,
-    (raw as Record<string, unknown>).source_brand,
-    (raw as Record<string, unknown>).store,
-    (raw as Record<string, unknown>).store_name,
-    (raw as Record<string, unknown>).source,
-  ).toLowerCase();
-  for (const m of KNOWN_MARKETPLACES) {
-    if (candidate.includes(m.toLowerCase())) return m;
-  }
-  // Heuristic: source URL host
-  const sourceUrl = pickString(
-    (raw as Record<string, unknown>).source_url,
-    (raw as Record<string, unknown>).original_url,
-    (raw as Record<string, unknown>).external_url,
-    (raw as Record<string, unknown>).redirect_url,
-  );
-  if (sourceUrl) {
-    if (sourceUrl.includes("flipkart")) return "Flipkart";
-    if (sourceUrl.includes("myntra")) return "Myntra";
-    if (sourceUrl.includes("meesho")) return "Meesho";
-    if (sourceUrl.includes("ajio")) return "Ajio";
-    if (sourceUrl.includes("nykaa")) return "Nykaa";
-    if (sourceUrl.includes("shopsy")) return "Shopsy";
-  }
+  // HYPD's hot-selling-catalogs is a DTC brand catalog (Plix, Tressca,
+  // etc.), not re-aggregated marketplace listings. Every product is
+  // sold through HYPD's own affiliate URL → marketplace="HYPD".
+  // Kept the heuristic in case HYPD adds source_url later.
+  const r = raw as Record<string, unknown>;
+  const sourceUrl = pickString(r.source_url, r.original_url, r.external_url, r.redirect_url);
+  if (sourceUrl.includes("flipkart")) return "Flipkart";
+  if (sourceUrl.includes("myntra")) return "Myntra";
+  if (sourceUrl.includes("meesho")) return "Meesho";
+  if (sourceUrl.includes("ajio")) return "Ajio";
+  if (sourceUrl.includes("nykaa")) return "Nykaa";
+  if (sourceUrl.includes("shopsy")) return "Shopsy";
   return "HYPD";
 }
 

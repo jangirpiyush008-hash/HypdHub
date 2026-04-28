@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { BottomNav } from "@/components/bottom-nav";
+import { InspectShield } from "@/components/inspect-shield";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
   title: "HYPD Hub — Creator Deal Platform",
-  description: "Discover deals, convert HYPD affiliate links, and automate distribution across Telegram and WhatsApp.",
+  description: "Discover the best deals across Indian marketplaces, convert HYPD affiliate links, and automate distribution.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -34,6 +35,7 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning className="bg-surface font-body text-text antialiased">
         <AuthProvider>
+          <InspectShield />
           <div className="relative min-h-screen overflow-x-hidden">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-hero-glow" />
             <SiteHeader />

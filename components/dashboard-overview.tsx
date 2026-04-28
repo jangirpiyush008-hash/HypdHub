@@ -13,8 +13,7 @@ type HypdCommission = { label: string; commission: string };
 type HypdStats = { sales: string | null; orders: string | null; withdrawable: string | null; pending: string | null };
 
 type DealsApiResponse = {
-  telegramDealsCount: number;
-  validatedDealsCount: number;
+  totalDealsCount?: number;
   history: { trackedDeals: number; trackedSnapshots: number };
   refresh: { lastRefreshAt: string | null; nextRefreshAt: string | null; lastStatus: string };
   topDealsByMarketplace: Record<string, InternetDeal[]>;

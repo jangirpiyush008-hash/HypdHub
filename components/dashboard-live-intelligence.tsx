@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 
 type DashboardDealsResponse = {
-  telegramDealsCount: number;
-  validatedDealsCount: number;
+  totalDealsCount: number;
   history: { trackedDeals: number; trackedSnapshots: number };
   refresh: { lastRefreshAt: string | null; nextRefreshAt: string | null; lastStatus: string };
 };
@@ -36,20 +35,20 @@ export function DashboardLiveIntelligence() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-xl bg-surface-card p-4">
-          <p className="text-xs text-muted">Discovered</p>
-          <p className="mt-1 font-headline text-2xl font-bold text-text">{data.telegramDealsCount}</p>
+          <p className="text-xs text-muted">Live Deals</p>
+          <p className="mt-1 font-headline text-2xl font-bold text-text">{data.totalDealsCount}</p>
         </div>
         <div className="rounded-xl bg-surface-card p-4">
-          <p className="text-xs text-muted">Validated</p>
-          <p className="mt-1 font-headline text-2xl font-bold text-text">{data.validatedDealsCount}</p>
-        </div>
-        <div className="rounded-xl bg-surface-card p-4">
-          <p className="text-xs text-muted">History</p>
+          <p className="text-xs text-muted">Tracked</p>
           <p className="mt-1 font-headline text-2xl font-bold text-text">{data.history.trackedDeals}</p>
         </div>
         <div className="rounded-xl bg-surface-card p-4">
           <p className="text-xs text-muted">Snapshots</p>
           <p className="mt-1 font-headline text-2xl font-bold text-text">{data.history.trackedSnapshots}</p>
+        </div>
+        <div className="rounded-xl bg-surface-card p-4">
+          <p className="text-xs text-muted">Refresh</p>
+          <p className="mt-1 font-headline text-2xl font-bold text-text">2h</p>
         </div>
       </div>
 

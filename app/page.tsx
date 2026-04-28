@@ -5,7 +5,7 @@ import { HomeDealsPreview } from "@/components/home-marketplace-preview";
 const features = [
   {
     title: "Discover Deals",
-    body: "Live deals scraped from HYPD storefront, Telegram channels, and top marketplaces — ranked by discount, traffic, and freshness.",
+    body: "Curated live deals from top Indian marketplaces — ranked by discount, traffic, and freshness across the web.",
     icon: "🔥"
   },
   {
@@ -15,7 +15,7 @@ const features = [
   },
   {
     title: "Automate Distribution",
-    body: "Set up Telegram bots to auto-pick deals, convert links, and post to your channels on schedule.",
+    body: "Set up automations to auto-pick deals, convert links, and broadcast to your channels on schedule.",
     icon: "⚡"
   },
   {
@@ -27,8 +27,8 @@ const features = [
 
 const stats = [
   { value: "6+", label: "Marketplaces" },
-  { value: "34+", label: "Telegram Channels" },
-  { value: "Real-time", label: "Deal Scraping" },
+  { value: "1000+", label: "Live Deals" },
+  { value: "Real-time", label: "Deal Discovery" },
   { value: "2hr", label: "Auto Refresh" }
 ];
 
@@ -48,7 +48,7 @@ export default function HomePage() {
             <span className="text-muted">Everywhere.</span>
           </h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-muted">
-            HYPD Hub scrapes the best deals from marketplaces and Telegram, converts them to your
+            HYPD Hub finds the best deals across Indian marketplaces, converts them to your
             affiliate links, and helps you distribute across channels — all from one place.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -97,7 +97,7 @@ export default function HomePage() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="font-headline text-2xl font-bold tracking-tight text-text">Trending Deals</h2>
-            <p className="mt-1 text-sm text-muted">Live from HYPD storefront and marketplaces</p>
+            <p className="mt-1 text-sm text-muted">Live across Indian marketplaces</p>
           </div>
           <Link
             href="/deals"

@@ -189,9 +189,14 @@ export async function GET(request: NextRequest) {
   ]);
   const scraped = { deals: [] as InternetDeal[], sources: ["GitHub Actions worker (hourly)"], scrapedAt: new Date().toISOString() };
 
-  const hypdDeals = hypdProductsToDeals(hypd);
+  // HYPD storefront products are kept off the public deal feed — the
+  // hot-selling API surfaces order-count rankings without reliable
+  // current/original price data, so it can't honestly compete with
+  // marketplace deals on "cheapest / biggest discount" sorting.
+  // (Still fetched above so the dashboard's brand/commission widgets
+  // can use it; just not merged into the deal list.)
+  const hypdDeals: InternetDeal[] = [];
 
-  // Merge: DB deals first (primary), then telegram + scraped + HYPD
   const rawDeals = [...dbDeals, ...telegram.deals, ...scraped.deals, ...hypdDeals];
 
   const cleaned = cleanDeals(rawDeals);
@@ -248,19 +253,29 @@ export async function GET(request: NextRequest) {
       .slice(0, dealsPerMarketplace);
   }
 
+  // Strip source-revealing fields from every deal so the client and any
+  // network inspector see only marketplace attribution. Aggregator names,
+  // Telegram references, and "agent"/"sync" tags never reach the browser.
+  const sanitizeDeal = (d: InternetDeal): InternetDeal => ({
+    ...d,
+    channelNames: [d.marketplace],
+    sourceEvidence: undefined,
+  });
+  const sanitizedDeals = filteredDeals.map(sanitizeDeal);
+  const sanitizedTopByMp: Record<string, InternetDeal[]> = {};
+  for (const [mp, list] of Object.entries(topDealsByMarketplace)) {
+    sanitizedTopByMp[mp] = list.map(sanitizeDeal);
+  }
+
   const responseData = {
     generatedAt: new Date().toISOString(),
     refreshWindowHours: 2,
     isLoggedIn,
     creatorUsername,
-    dbDealsCount: dbDeals.length,
-    deals: filteredDeals,
-    topDealsByMarketplace,
-    telegramDealsCount: telegram.deals.length,
-    validatedDealsCount: telegram.deals.filter((d) => d.validationStatus === "validated").length,
-    scrapedDealsCount: scraped.deals.length,
-    hypdDealsCount: hypdDeals.length,
-    scrapedSources: scraped.sources,
+    deals: sanitizedDeals,
+    topDealsByMarketplace: sanitizedTopByMp,
+    // Single, generic count. No per-source breakdown leaks here.
+    totalDealsCount: filteredDeals.length,
     history,
     refresh,
     hypd

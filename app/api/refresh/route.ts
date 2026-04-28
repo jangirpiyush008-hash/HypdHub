@@ -41,10 +41,11 @@ export async function POST() {
 
   return NextResponse.json({
     ok: true,
-    message: `Refreshed: ${telegram.deals.length} from Telegram, ${scraped.deals.length} from marketplaces.`,
-    telegramDealsCount: telegram.deals.length,
-    scrapedDealsCount: scraped.deals.length,
-    validatedDealsCount,
+    // Generic, source-agnostic message and counts. We deliberately don't
+    // surface a per-source breakdown so the underlying ingestion mix
+    // stays a server-side implementation detail.
+    message: `Refreshed ${totalDeals} live deals.`,
+    totalDealsCount: totalDeals,
     history,
     refresh
   });
