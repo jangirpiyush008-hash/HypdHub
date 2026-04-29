@@ -74,26 +74,38 @@ const COMPETITOR_PARAM_KEYS = new Set([
   "utm_term",
   "utm_content",
   "utm_id",
-  // Other affiliate networks
+  // Other affiliate networks. NOTE: keep all entries lowercase — the
+  // membership check below normalises the URL param name to lowercase,
+  // so any mixed-case entry here would silently miss. (We had this bug
+  // — affExtParam1/affExtParam2 were stored mixed-case and slipped
+  // through, leaking the EarnKaro tracking id "ENKR..." into the
+  // public URL we shipped to the browser.)
   "affid",
-  "affExtParam1",
-  "affExtParam2",
+  "affextparam1",
+  "affextparam2",
   "cmpid",
   "tagtag_uid",
   "offer_id",
   "attribution_window",
   "return_cancellation_window",
   "tag",
-  "linkCode",
+  "linkcode",
   "ref_",
   "ascsubtag",
-  "fromEKaroBanner",
-  "fromHomeAjio",
-  "_appId",
-  "_refId",
+  "fromekarobanner",
+  "fromhomeajio",
+  "_appid",
+  "_refid",
   "sc_channel",
   "cl_source",
   "icmp",
+  // Generic creator/poster identity slots — these are how upstream
+  // channels stamp their attribution into Flipkart/Myntra URLs. We
+  // never want them in the URL we ship.
+  "shareid",
+  "source",
+  "src",
+  "sub_id",
 ]);
 
 // Marketplace-specific params we should KEEP (product ids, variants, filters).

@@ -202,22 +202,30 @@ export async function GET(request: NextRequest) {
   const cleaned = cleanDeals(rawDeals);
   const withCategory = cleaned.map(ensureCategoryUrl);
 
-  // If logged in, convert every deal link through HYPD's deeplink API so each
-  // link carries THIS creator's attribution (real af_siteid, real clickid,
-  // real product_id) instead of the hardcoded generic siteid the sync
-  // generator falls back to. Per-creator cache + bounded concurrency keeps
-  // this fast on repeat loads.
-  // Per-creator unique siteid:
-  //   1. If we have live HYPD cookies → call HYPD's deeplink API (real
-  //      af_siteid + clickid + product_id stamped on every link).
-  //   2. If logged in but cookies expired → still embed creator.hypdUserId
-  //      as af_siteid in the synchronously-generated link so attribution
-  //      lands on this creator, not the generic pool.
-  //   3. Anonymous → generic pool fallback (creatorHypdUserId undefined).
-  const allDeals =
-    creator && creatorCookies.length > 0
-      ? await convertDealsForCreator(withCategory, creator, creatorCookies)
-      : convertDealLinksToHypd(withCategory, creatorUsername, creator?.hypdUserId);
+  // SYNC-ONLY conversion for the initial page render.
+  //
+  // The previous flow called HYPD's /deeplink API for every unique URL
+  // on every cold-cache load — at concurrency 6 that's ~8s of sequential
+  // round-trips for 100 deals. Users were waiting forever on /deals.
+  //
+  // The synchronous generator (generateHypdConversion) already produces
+  // a fully-functional creator link: it embeds creator.hypdUserId as
+  // af_siteid (the part that actually controls attribution), generates
+  // a deterministic clickid from the source URL, and builds the
+  // expanded product_id-stamped marketplace URL. The HYPD API call
+  // adds nothing the synchronous version doesn't already have, except
+  // a server-issued random clickid — which HYPD's redirect re-stamps
+  // anyway when the user actually clicks the link.
+  //
+  // So: render instantly with sync links. Click-time still flows through
+  // hypd.store/<creator>/afflink/<id>, which the upstream redirect
+  // resolves to the real tracked URL. Attribution lands on the creator
+  // either way.
+  const allDeals = convertDealLinksToHypd(
+    withCategory,
+    creatorUsername,
+    creator?.hypdUserId,
+  );
 
   const filteredDeals = allDeals.filter((deal) => {
     const marketplaceMatch = !marketplace || marketplace === "All" || deal.marketplace === marketplace;

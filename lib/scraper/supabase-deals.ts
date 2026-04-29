@@ -128,15 +128,14 @@ export async function upsertDeals(deals: InternetDeal[], source: "scraped" | "te
       updated_at: new Date().toISOString(),
     }));
 
-    // The deals table doesn't have a unique constraint on product_url, so
-    // upsert(onConflict: "product_url") fails. Instead, when scraping a
-    // marketplace, delete the previous scraped batch for that marketplace
-    // and insert the fresh top-N. (Telegram source is left alone — it
-    // accumulates, not replaces.)
-    // For 'scraped' and 'hypd' sources, delete the previous batch for
-    // each marketplace so we don't accumulate stale entries. Telegram is
-    // append-only because it tracks distinct mentions over time.
-    if (source === "scraped" || source === "hypd") {
+    // Delete-then-insert per marketplace for EVERY source. Each 2hr
+    // refresh wipes the previous batch and writes the fresh one — so
+    // visitors see different deals every refresh window instead of an
+    // ever-growing pile of stale entries. Telegram used to be append-
+    // only ("tracks mention history") but in practice that just buried
+    // today's deals under last week's; rotation > mention-history for
+    // the public feed.
+    {
       const marketplaces = Array.from(new Set(rows.map((r) => r.marketplace)));
       for (const mp of marketplaces) {
         await sb

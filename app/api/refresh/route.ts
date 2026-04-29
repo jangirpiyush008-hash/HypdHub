@@ -4,12 +4,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-import { fetchTelegramDeals } from "@/lib/integrations/telegram";
-import { scrapeMarketplaceDeals } from "@/lib/integrations/marketplace-scraper";
+import { fetchTelegramWebDeals } from "@/lib/scraper/telegram-web";
+import { upsertDeals } from "@/lib/scraper/supabase-deals";
 import { getDealHistorySummary } from "@/lib/runtime/deal-history";
 import { getRefreshStatus, recordRefreshSuccess } from "@/lib/runtime/refresh-state";
 import { clearDealsCache } from "@/app/api/deals/route";
-import { clearScraperMemCache } from "@/lib/scraper/index";
 
 export async function GET() {
   const status = await getRefreshStatus();
@@ -17,35 +16,28 @@ export async function GET() {
 }
 
 export async function POST() {
-  // Bust upstream memory caches BEFORE scraping so this call goes to the wire.
-  clearScraperMemCache();
+  // Pull fresh Telegram-sourced deals via the HTTP web scraper. The
+  // MTProto path is unusable from cloud IPs (handshake hangs), so this
+  // is the only path that works in production. Marketplace scraper
+  // (Nova) runs on the GH Actions cron worker — calling it from here
+  // would either start a Playwright browser inside the Next.js server
+  // (slow, fragile) or return zero. Better to trust the cron.
+  const tgDeals = await fetchTelegramWebDeals();
+  if (tgDeals.length) {
+    await upsertDeals(tgDeals, "telegram");
+  }
 
-  // Refresh from all sources: Telegram + marketplace scraper
-  const [telegram, scraped] = await Promise.all([
-    fetchTelegramDeals(true),
-    // force: wait for Nova to actually finish scraping so this response
-     // reports real counts instead of "0 from marketplaces" while a background
-     // job is still crawling.
-     scrapeMarketplaceDeals({ force: true }).catch(() => ({ deals: [], sources: [], scrapedAt: new Date().toISOString() }))
-  ]);
-
-  // Bust the per-creator converted-deals cache so the next /api/deals GET
-  // goes all the way back to the fresh source data we just pulled.
   clearDealsCache();
 
   const history = await getDealHistorySummary();
-  const totalDeals = telegram.deals.length + scraped.deals.length;
-  const validatedDealsCount = telegram.deals.filter((d) => d.validationStatus === "validated").length;
-  await recordRefreshSuccess("manual-refresh", totalDeals, validatedDealsCount);
+  await recordRefreshSuccess("manual-refresh", tgDeals.length, tgDeals.length);
   const refresh = await getRefreshStatus();
 
   return NextResponse.json({
     ok: true,
-    // Generic, source-agnostic message and counts. We deliberately don't
-    // surface a per-source breakdown so the underlying ingestion mix
-    // stays a server-side implementation detail.
-    message: `Refreshed ${totalDeals} live deals.`,
-    totalDealsCount: totalDeals,
+    // Generic message — source mix is a server-side detail.
+    message: `Refreshed ${tgDeals.length} live deals.`,
+    totalDealsCount: tgDeals.length,
     history,
     refresh
   });

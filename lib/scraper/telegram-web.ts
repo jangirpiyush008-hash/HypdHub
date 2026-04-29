@@ -27,6 +27,7 @@
  */
 
 import { InternetDeal } from "@/lib/types";
+import { cleanUrlForHypdSync } from "@/lib/url-cleaner";
 
 type Marketplace = InternetDeal["marketplace"];
 
@@ -265,21 +266,34 @@ function extractCandidates(html: string): RawCandidate[] {
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
 
-    // Look at the surrounding HTML for image + text + price context.
-    const start = Math.max(0, m.index - 2400);
+    // Window boundaries — generous backward scan because long preceding
+    // messages can push the photo div back several KB.
+    const start = Math.max(0, m.index - 5000);
     const end = Math.min(html.length, m.index + 800);
-    const ctx = html.slice(start, end);
 
+    // Image: take the LAST background-image:url(...) BEFORE the anchor,
+    // not the first. The window typically contains photos from the
+    // previous 1–2 messages too; only the closest-preceding one belongs
+    // to this message.
     let imageUrl: string | null = null;
-    const imgMatch = ctx.match(/background-image:\s*url\(['"]?([^'")]+)['"]?\)/i);
-    if (imgMatch) imageUrl = imgMatch[1];
-
-    let title: string | null = null;
-    const textBlock = ctx.match(
-      /<div\s+class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    const beforeAnchor = html.slice(start, m.index);
+    const allImgs = Array.from(
+      beforeAnchor.matchAll(/background-image:\s*url\(['"]?(https?:\/\/[^'")\s]+)['"]?\)/gi),
     );
-    if (textBlock) {
-      const stripped = stripTags(textBlock[1]).replace(/\s+/g, " ").trim();
+    if (allImgs.length > 0) imageUrl = allImgs[allImgs.length - 1][1];
+
+    // Title: find the message_text div whose body contains THIS anchor.
+    // Walk backward from anchor to the nearest opening text div, then
+    // scan forward to its closing tag — that's the message we belong to.
+    let title: string | null = null;
+    const textOpen = beforeAnchor.lastIndexOf('<div class="tgme_widget_message_text');
+    if (textOpen >= 0) {
+      // Slice from the text-div opening to ~400 chars after the anchor —
+      // enough to capture the closing </div>.
+      const fromTextOpen = html.slice(start + textOpen, m.index + 400);
+      const closeIdx = fromTextOpen.search(/<\/div>/i);
+      const textBlockHtml = closeIdx > 0 ? fromTextOpen.slice(0, closeIdx) : fromTextOpen;
+      const stripped = stripTags(textBlockHtml).replace(/\s+/g, " ").trim();
       const segs = stripped
         .split(/[\n.!?|•·@]/)
         .map((s) => s.trim())
@@ -295,7 +309,16 @@ function extractCandidates(html: string): RawCandidate[] {
       }
     }
 
-    const plain = stripTags(ctx);
+    // Price: only look INSIDE the text block, not the wider window —
+    // otherwise we pick up prices from previous messages.
+    let plain = "";
+    if (textOpen >= 0) {
+      const fromTextOpen = html.slice(start + textOpen, m.index + 400);
+      const closeIdx = fromTextOpen.search(/<\/div>/i);
+      plain = stripTags(closeIdx > 0 ? fromTextOpen.slice(0, closeIdx) : fromTextOpen);
+    } else {
+      plain = stripTags(html.slice(start, end));
+    }
     const { current, original } = extractPricesIn(plain);
 
     out.push({ url: rawUrl, title: title.slice(0, 140), imageUrl, current, original });
@@ -379,9 +402,16 @@ export async function fetchTelegramWebDeals(): Promise<InternetDeal[]> {
     for (const c of resolved) {
       const marketplace = classifyByHost(c.finalUrl);
       if (!marketplace) continue;
-      const dedupe = c.finalUrl.split("?")[0];
+      // CRITICAL: strip every competitor / source-tracing param before
+      // we save the URL. The resolved redirect typically contains
+      // affid=<channel-poster> + affExtParam1=ENKR... which traces
+      // straight back to the upstream deal channel. cleanUrlForHypdSync
+      // removes all of those so the URL we store and ship to clients
+      // contains nothing that could identify our source.
+      const cleanedUrl = cleanUrlForHypdSync(c.finalUrl);
+      const dedupe = cleanedUrl.split("?")[0];
       if (globalSeen.has(dedupe)) continue;
-      const deal = buildDeal(c, marketplace, c.finalUrl);
+      const deal = buildDeal(c, marketplace, cleanedUrl);
       if (!deal) continue;
       globalSeen.add(dedupe);
       collected.push(deal);
