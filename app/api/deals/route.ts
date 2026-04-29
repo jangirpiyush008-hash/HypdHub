@@ -1,13 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchHypdProducts } from "@/lib/integrations/hypd";
 import { fetchTelegramDeals } from "@/lib/integrations/telegram";
+import { fetchTelegramWebDeals } from "@/lib/scraper/telegram-web";
 import { getDealHistorySummary } from "@/lib/runtime/deal-history";
-import { ensureAutomaticRefresh, getRefreshStatus } from "@/lib/runtime/refresh-state";
+import { ensureAutomaticRefresh, getRefreshStatus, recordRefreshSuccess } from "@/lib/runtime/refresh-state";
 import { InternetDeal } from "@/lib/types";
 import { generateHypdConversion } from "@/lib/hypd-links";
 import { fetchCurrentHypdCreator, getStoredHypdCookies } from "@/lib/hypd-server";
-import { fetchDealsFromDb } from "@/lib/scraper/supabase-deals";
+import { fetchDealsFromDb, upsertDeals } from "@/lib/scraper/supabase-deals";
 import { convertDealsForCreator } from "@/lib/deals/creator-links";
+
+// On-demand refresh window. If the last refresh is older than this
+// when a request lands, we trigger an inline scrape and serve the
+// fresh result. The GH Actions cron runs at the same cadence as a
+// fallback for when no one's visiting the site.
+const REFRESH_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+// Module-level guard so two concurrent stale requests don't both
+// kick off a scrape. The first one runs, others wait on the same
+// promise.
+let pendingRefresh: Promise<void> | null = null;
+
+async function refreshDealsInline(): Promise<void> {
+  if (pendingRefresh) return pendingRefresh;
+  pendingRefresh = (async () => {
+    try {
+      const tg = await fetchTelegramWebDeals();
+      if (tg.length) await upsertDeals(tg, "telegram");
+      await recordRefreshSuccess("on-demand", tg.length, tg.length);
+    } catch (e) {
+      console.warn("[deals] on-demand refresh failed:", e instanceof Error ? e.message : String(e));
+    } finally {
+      pendingRefresh = null;
+    }
+  })();
+  return pendingRefresh;
+}
 
 const supportedMarketplaces: InternetDeal["marketplace"][] = [
   "Myntra", "Meesho", "Flipkart", "Shopsy", "Ajio", "Nykaa", "HYPD"
@@ -148,16 +176,28 @@ export function clearDealsCache() {
 
 export async function GET(request: NextRequest) {
   const now = Date.now();
-
-  // Fire-and-forget Telegram refresh — don't block the response on it.
-  // Marketplace scraping has moved to GitHub Actions (hourly cron) and
-  // is read from Supabase below, so the page no longer waits on Nova.
-  void ensureAutomaticRefresh("api-deals").catch(() => {});
   const { searchParams } = new URL(request.url);
   const marketplace = searchParams.get("marketplace");
   const minPrice = Number(searchParams.get("minPrice") ?? "0");
   const maxPrice = Number(searchParams.get("maxPrice") ?? "999999");
   const bustCache = searchParams.get("refresh") === "1";
+
+  // STALENESS-AWARE REFRESH:
+  //   If the last refresh is older than 2hrs (or never happened, or
+  //   the user explicitly hit ?refresh=1), pull fresh deals NOW. The
+  //   first request after the window is slow (~25s) — every request
+  //   inside the window is fast (DB read only).
+  //
+  //   This is the architecture the user asked for: don't store stale
+  //   deals indefinitely; the dashboard should pull real-time when it
+  //   opens 2hrs after the last refresh. The GH Actions cron is a
+  //   fallback for periods when nobody opens the site.
+  const status = await getRefreshStatus();
+  const lastMs = status.lastRefreshAt ? new Date(status.lastRefreshAt).getTime() : 0;
+  const isStale = !lastMs || now - lastMs > REFRESH_WINDOW_MS;
+  if (isStale || bustCache) {
+    await refreshDealsInline();
+  }
 
   const creator = await fetchCurrentHypdCreator().catch(() => null);
   const creatorUsername = creator?.hypdUsername ?? "hypdhub";

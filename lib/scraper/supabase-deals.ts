@@ -108,10 +108,31 @@ export async function fetchDealsByMarketplace(marketplace: string): Promise<Inte
 /**
  * Upsert scraped/telegram deals into Supabase.
  */
+// Hard cap on how many deals per marketplace per source we ever store.
+// Beyond this, Supabase becomes a stale graveyard — better to keep a small
+// rolling top-N and rely on on-demand refresh to bring in fresh deals.
+const MAX_DEALS_PER_MARKETPLACE = 10;
+
 export async function upsertDeals(deals: InternetDeal[], source: "scraped" | "telegram" | "hypd"): Promise<number> {
   try {
     const sb = createServerSupabase();
-    const rows = deals.map((d) => ({
+
+    // Top-N slice per marketplace so we never store more than 10 deals
+    // per marketplace per source. Sort by score (which already biases
+    // toward higher discount + recency) before slicing.
+    const byMarketplace = new Map<string, InternetDeal[]>();
+    for (const d of deals) {
+      const arr = byMarketplace.get(d.marketplace) ?? [];
+      arr.push(d);
+      byMarketplace.set(d.marketplace, arr);
+    }
+    const topNDeals: InternetDeal[] = [];
+    for (const arr of byMarketplace.values()) {
+      arr.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      topNDeals.push(...arr.slice(0, MAX_DEALS_PER_MARKETPLACE));
+    }
+
+    const rows = topNDeals.map((d) => ({
       marketplace: d.marketplace,
       title: d.title,
       category: d.category || "General",
