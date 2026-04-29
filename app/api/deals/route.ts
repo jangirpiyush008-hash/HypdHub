@@ -21,13 +21,65 @@ const REFRESH_WINDOW_MS = 2 * 60 * 60 * 1000;
 // promise.
 let pendingRefresh: Promise<void> | null = null;
 
+/**
+ * Fire the GitHub Actions "Scrape marketplaces" workflow — the canonical
+ * 2-hour pipeline that runs both Nova (Meesho/Ajio/Nykaa) and the
+ * Telegram web-scraper (Flipkart/Myntra/Shopsy) in parallel. Triggering
+ * via workflow_dispatch means we get the same machinery the cron uses,
+ * on GH's runners where Playwright actually works — instead of trying
+ * to boot Chromium inside a Vercel function (which would blow the 60s
+ * timeout).
+ *
+ * Requires two env vars to be active:
+ *   - GH_DISPATCH_TOKEN: a fine-scoped GitHub PAT with `actions:write`
+ *     on this repo.
+ *   - GH_DISPATCH_REPO: e.g. "jangirpiyush008-hash/HypdHub"
+ *
+ * Without those, the dispatch is a silent no-op — the in-process
+ * Telegram refresh below still runs as the fallback.
+ */
+async function dispatchScrapeWorkflow(): Promise<boolean> {
+  const token = process.env.GH_DISPATCH_TOKEN;
+  const repo = process.env.GH_DISPATCH_REPO;
+  if (!token || !repo) return false;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/scrape.yml/dispatches`, {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${token}`,
+        "accept": "application/vnd.github+json",
+        "content-type": "application/json",
+        "x-github-api-version": "2022-11-28",
+      },
+      body: JSON.stringify({ ref: "main" }),
+      signal: AbortSignal.timeout(8_000),
+    });
+    return res.status === 204; // GitHub returns 204 No Content on success
+  } catch {
+    return false;
+  }
+}
+
 async function refreshDealsInline(): Promise<void> {
   if (pendingRefresh) return pendingRefresh;
   pendingRefresh = (async () => {
     try {
+      // 1) Fire the GH workflow — runs Nova + Telegram in parallel on the
+      //    runner. Fresh deals show up in Supabase 2-4 minutes later.
+      //    Non-blocking — we don't wait for the workflow to finish.
+      const dispatched = await dispatchScrapeWorkflow();
+
+      // 2) Run the Telegram web-scraper IN-PROCESS as well so users
+      //    refreshing right now get fresh Flipkart/Myntra/Shopsy deals
+      //    in ~25s without waiting 4 minutes for the GH workflow. The
+      //    workflow's run will overwrite these with the same/fresher
+      //    batch when it lands; that's fine because both paths use
+      //    delete-then-insert.
       const tg = await fetchTelegramWebDeals();
       if (tg.length) await upsertDeals(tg, "telegram");
-      await recordRefreshSuccess("on-demand", tg.length, tg.length);
+
+      const reason = dispatched ? "on-demand+gh-dispatch" : "on-demand-tg-only";
+      await recordRefreshSuccess(reason, tg.length, tg.length);
     } catch (e) {
       console.warn("[deals] on-demand refresh failed:", e instanceof Error ? e.message : String(e));
     } finally {
