@@ -182,21 +182,23 @@ export async function GET(request: NextRequest) {
   const maxPrice = Number(searchParams.get("maxPrice") ?? "999999");
   const bustCache = searchParams.get("refresh") === "1";
 
-  // STALENESS-AWARE REFRESH:
-  //   If the last refresh is older than 2hrs (or never happened, or
-  //   the user explicitly hit ?refresh=1), pull fresh deals NOW. The
-  //   first request after the window is slow (~25s) — every request
-  //   inside the window is fast (DB read only).
+  // STALENESS-AWARE BACKGROUND REFRESH:
+  //   If the last refresh is older than 2hrs, kick off a fresh scrape
+  //   IN THE BACKGROUND and return the current DB contents immediately.
+  //   The user never waits — the scrape just updates the DB so the
+  //   NEXT request sees fresh deals. A module-level pendingRefresh
+  //   promise dedupes concurrent triggers so the scrape only runs once
+  //   per window even under load.
   //
-  //   This is the architecture the user asked for: don't store stale
-  //   deals indefinitely; the dashboard should pull real-time when it
-  //   opens 2hrs after the last refresh. The GH Actions cron is a
-  //   fallback for periods when nobody opens the site.
+  //   ?refresh=1 still forces a synchronous scrape for explicit "give
+  //   me fresh deals NOW" buttons.
   const status = await getRefreshStatus();
   const lastMs = status.lastRefreshAt ? new Date(status.lastRefreshAt).getTime() : 0;
   const isStale = !lastMs || now - lastMs > REFRESH_WINDOW_MS;
-  if (isStale || bustCache) {
+  if (bustCache) {
     await refreshDealsInline();
+  } else if (isStale) {
+    void refreshDealsInline().catch(() => { /* logged inside */ });
   }
 
   const creator = await fetchCurrentHypdCreator().catch(() => null);
